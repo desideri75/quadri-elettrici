@@ -1,0 +1,2563 @@
+<!DOCTYPE html>
+<html lang="it"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Quadri Elettrici</title>
+<meta name="description" content="Composizione di quadri elettrici su guida DIN con libreria di componenti, schema unifilare, calcolo cavi e distinta materiali.">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quadri">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+:root {
+  --bg: #f3f4f7; --fg: #1d2330; --muted: #6b7280; --line: #d9dde4; --card: #fff;
+  --pri: #1f3a5f; --acc: #2563eb; --err: #c62828; --warn: #b26a00; --ok: #2e7d32;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--fg);
+  display: flex; flex-direction: column; height: 100%; overflow: hidden;
+}
+h3 { margin: 18px 0 8px; font-size: 15px; color: var(--pri); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.pad { padding: 12px 16px; }
+.pad0 { padding: 0 16px; margin: 10px 0 0; }
+.note { font-size: 11px; color: var(--muted); }
+.warn-t { color: var(--warn); }
+
+/* ---------- topbar */
+.topbar {
+  background: var(--pri); color: #fff; display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); flex-wrap: wrap;
+}
+.topbar .title { display: flex; flex-direction: column; min-width: 0; flex: 1 1 150px; }
+.topbar .title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; }
+.topbar .title small { opacity: .75; font-size: 12px; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.tabs button {
+  background: transparent; border: 0; color: #c9d4e5; padding: 8px 11px; border-radius: 8px;
+  font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.tabs button.active { background: rgba(255, 255, 255, .17); color: #fff; }
+.icon-btn { background: transparent; border: 0; color: #fff; font-size: 18px; cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+.icon-btn.dark { color: var(--fg); }
+.icon-btn:hover { background: rgba(127, 127, 127, .15); }
+.save-chip {
+  background: rgba(255, 255, 255, .14); border: 0; color: #fff; font: inherit; font-size: 12px; cursor: pointer;
+  padding: 5px 10px; border-radius: 14px; white-space: nowrap;
+}
+.save-chip.err { background: #c62828; }
+.save-chip.warn { background: #b26a00; }
+main { flex: 1; min-height: 0; overflow: auto; position: relative; }
+
+/* ---------- controlli */
+.btn {
+  border: 1px solid var(--line); background: #fff; color: var(--fg); padding: 7px 12px; border-radius: 8px;
+  font: inherit; cursor: pointer; white-space: nowrap; text-decoration: none; display: inline-block;
+}
+.btn:hover { border-color: #9aa3b2; }
+.btn.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+.btn.danger { color: var(--err); border-color: #efc5c5; }
+.btn.icon { width: 38px; padding: 7px 0; font-weight: bold; }
+.btn.small { padding: 4px 9px; font-size: 13px; }
+.grp { display: inline-flex; gap: 4px; }
+input, select, textarea {
+  font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px;
+  background: #fff; color: inherit; min-width: 0; width: 100%;
+}
+.toolbar input, .toolbar select { width: auto; flex: 1 1 140px; }
+.toolbar {
+  display: flex; gap: 8px; align-items: center; padding: 10px 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); background: #fff;
+}
+.tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 10px; background: #eceef2; color: #444; font-weight: 600; }
+.tag.blue { background: #e3edfb; color: #1d5fa8; }
+
+/* ---------- vista quadro */
+.q-layout { display: grid; grid-template-columns: 310px 1fr; height: 100%; }
+.q-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.palette { order: -1; border-right: 1px solid var(--line); background: #fff; display: flex; flex-direction: column; min-height: 0; }
+.pal-toggle { display: none; }
+.pal-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.pal-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px; }
+.pal-filters input { grid-column: 1 / -1; }
+.pal-hint, .place-bar {
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+  margin: 0 10px 8px; padding: 8px 10px; background: #eaf1ff; border: 1px solid #b9cdf5; border-radius: 8px; font-size: 13px;
+}
+.place-bar { margin: 8px 10px 0; }
+.pal-hint[hidden] { display: none; }
+.pal-list { overflow: auto; flex: 1; padding: 0 8px 12px; }
+.pal-item {
+  display: flex; gap: 10px; align-items: center; padding: 6px; border-radius: 8px; cursor: pointer;
+  border: 2px solid transparent; margin-bottom: 2px;
+}
+.pal-item:hover { background: #f2f5fa; }
+.pal-item.active { border-color: var(--acc); background: #eaf1ff; }
+.pal-thumb { height: 62px; flex: none; display: flex; background: #fff; }
+.pal-thumb > svg, .pal-thumb > img { width: 100%; height: 100%; object-fit: contain; }
+.pal-txt { min-width: 0; font-size: 13px; line-height: 1.3; }
+
+.panel-scroll { flex: 1; overflow: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+.enclosure {
+  display: inline-block; background: #e6e7ea; border: 2px solid #b6bac1; border-radius: 10px;
+  padding: calc(var(--m) * .6) calc(var(--m) * .9) calc(var(--m) * .2) calc(var(--m) * .4);
+  box-shadow: inset 0 0 0 6px #f4f4f5, 0 2px 8px rgba(0, 0, 0, .08);
+}
+.row { display: flex; align-items: flex-start; gap: calc(var(--m) * .3); padding-bottom: calc(var(--m) * 1.6); }
+.row-n { width: calc(var(--m) * .6); font-size: 11px; color: #888; padding-top: calc(var(--m) * 2.2); text-align: center; }
+.rail {
+  position: relative; flex: none; background-color: #f7f8fa;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, .09) 1px, transparent 1px);
+  background-size: var(--m) 100%; border: 1px dashed #c3c7ce;
+}
+.rail::before {
+  content: ""; position: absolute; left: -4px; right: -4px; top: 40%; height: 20%;
+  background: linear-gradient(#e6e8eb, #a6abb2); border-radius: 1px;
+}
+.rail.placing { outline: 2px solid var(--acc); cursor: copy; background-color: #eef4ff; }
+.dev {
+  position: absolute; top: 0; height: 100%; cursor: grab; touch-action: none; user-select: none;
+  -webkit-user-select: none; z-index: 1; background: #fff;
+}
+.dev > svg, .dev > img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.dev.sel { outline: 3px solid var(--acc); outline-offset: 1px; z-index: 2; }
+.dev.dragging { opacity: .85; z-index: 5; cursor: grabbing; box-shadow: 0 8px 22px rgba(0, 0, 0, .3); }
+.dev-label {
+  position: absolute; top: 100%; left: 0; right: 0; margin-top: 3px; height: calc(var(--m) * 1.3);
+  font-size: max(9px, calc(var(--m) * .34)); line-height: 1.15; text-align: center; overflow: hidden;
+  background: #fffbe6; border: 1px solid #e3d9a5; padding: 1px 2px; word-break: break-word; color: #333;
+}
+.dot { position: absolute; top: -6px; right: -6px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #fff; z-index: 3; }
+.dot.err { background: var(--err); }
+.dot.warn { background: #f59e0b; }
+
+/* ---------- sheet laterale */
+.sheet {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(450px, 100vw); background: #fff;
+  box-shadow: -8px 0 30px rgba(0, 0, 0, .18); z-index: 50; display: flex; flex-direction: column;
+}
+.sheet[hidden] { display: none; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.sheet-head h3 { margin: 0; }
+.sheet-body { overflow: auto; padding: 14px; flex: 1; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.form label input, .form label select, .form label textarea { color: var(--fg); font-size: 14px; }
+.form .wide { grid-column: 1 / -1; }
+.form h4 { margin: 8px 0 0; font-size: 13px; color: var(--pri); border-top: 1px solid var(--line); padding-top: 10px; }
+.form label.chk { flex-direction: row; align-items: center; gap: 8px; color: var(--fg); font-size: 14px; }
+.form label.chk input { width: auto; }
+.devhead { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.devthumb { height: 110px; flex: none; background: #fff; }
+.devthumb > svg, .devthumb > img { width: 100%; height: 100%; object-fit: contain; }
+.res-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
+.res-grid div { background: #f3f5f9; border-radius: 8px; padding: 6px 8px; }
+.res-grid span { display: block; font-size: 11px; color: var(--muted); }
+.checks { list-style: none; padding: 0; margin: 10px 0; }
+.checks li { padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+.checks li.ok { background: #e8f5e9; color: var(--ok); }
+.checks li.warn { background: #fff4e0; color: var(--warn); }
+.checks li.err { background: #fdeaea; color: var(--err); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.img-edit { display: flex; gap: 14px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
+.img-prev { min-width: 60px; min-height: 130px; display: flex; align-items: center; justify-content: center; background: #f3f5f9; border-radius: 8px; padding: 6px; }
+.img-prev svg, .img-prev img { width: 100%; height: 100%; object-fit: contain; }
+.img-btns { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+
+/* ---------- libreria */
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 12px 16px; }
+.lib-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+  display: flex; gap: 10px; cursor: pointer; align-items: center;
+}
+.lib-card:hover { border-color: #9aa3b2; }
+.lib-thumb { width: 74px; flex: none; display: flex; justify-content: center; overflow: hidden; }
+.lib-thumb > div { flex: none; max-width: 74px; }
+.lib-thumb svg, .lib-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.lib-txt { min-width: 0; font-size: 13px; line-height: 1.35; }
+
+/* ---------- progetti */
+.proj-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.proj { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.proj.current { border-color: var(--acc); }
+.proj-txt { flex: 1 1 240px; min-width: 0; }
+.proj-act { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ---------- unifilare / distinta */
+.uni-scroll { overflow: auto; padding: 12px 16px; }
+.uni-scroll svg { background: #fff; border: 1px solid var(--line); border-radius: 8px; display: block; }
+.node { cursor: pointer; }
+.node:hover .ln { stroke: var(--acc); }
+.table-scroll { overflow-x: auto; }
+table.tbl { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; }
+.tbl th, .tbl td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.tbl th { background: #eef1f6; font-size: 12px; }
+.tbl .r { text-align: right; }
+
+.actions.top { margin: 0 0 14px; }
+.url-row { display: flex; gap: 6px; }
+.modal-box.wide { width: min(560px, 100%); }
+.modal-box textarea { font: 12px/1.3 ui-monospace, Consolas, monospace; margin: 8px 0; }
+body.embedded #bPrint, body.embedded #bPrintU, body.embedded #bPrintD { display: none; }
+.btn.danger-fill { background: var(--err); border-color: var(--err); color: #fff; }
+.modal {
+  position: fixed; inset: 0; background: rgba(15, 20, 30, .45); z-index: 90;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-box { background: #fff; border-radius: 12px; padding: 18px; width: min(380px, 100%); box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.modal-box p { margin: 0 0 6px; font-size: 15px; }
+.modal-box .actions { justify-content: flex-end; }
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #222; color: #fff;
+  padding: 10px 16px; border-radius: 10px; z-index: 100; box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+  transition: opacity .4s; max-width: 90vw;
+}
+.toast.out { opacity: 0; }
+
+/* ---------- importazione Excel / CSV */
+.modal-box.xl { width: min(1040px, 100%); max-height: 92dvh; display: flex; flex-direction: column; }
+.modal-box.xl summary { cursor: pointer; font-size: 13px; color: var(--pri); font-weight: 600; margin: 4px 0; }
+.imp-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 10px; margin: 6px 0 8px; }
+.imp-map label, .imp-opts label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.imp-map select { padding: 4px 6px; font-size: 13px; }
+.imp-opts { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin: 4px 0 8px; }
+.imp-opts label { flex: 1 1 200px; }
+.imp-table { overflow: auto; flex: 1; min-height: 140px; border: 1px solid var(--line); border-radius: 8px; }
+.imp-table .tbl { font-size: 12px; }
+.imp-table .tbl th { position: sticky; top: 0; z-index: 1; }
+.imp-table .tbl td { white-space: nowrap; }
+.imp-table select { padding: 2px 4px; font-size: 12px; width: auto; }
+.imp-table input[type=checkbox] { width: auto; }
+.st-new { color: var(--ok); font-weight: 600; }
+.st-upd { color: var(--warn); font-weight: 600; }
+.st-bad { color: var(--err); font-weight: 600; }
+.imp-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ---------- cloud */
+.cloud-box { background: #f3f5f9; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 10px 0; }
+.cloud-box ol { margin: 6px 0 0; padding-left: 20px; }
+.cloud-box li { margin-bottom: 4px; }
+.cloud-st { font-size: 13px; margin-top: 10px; }
+.cloud-st.ok { color: var(--ok); }
+.cloud-st.err { color: var(--err); }
+
+/* ---------- telefono */
+@media (max-width: 760px) {
+  .topbar { gap: 4px 8px; padding-bottom: 4px; }
+  .tabs { order: 3; width: 100%; }
+  .q-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  .palette { order: 0; border-right: 0; border-top: 1px solid var(--line); max-height: 46dvh; box-shadow: 0 -4px 14px rgba(0, 0, 0, .08); }
+  .q-layout:not(.pal-open) .pal-body { display: none; }
+  .pal-toggle {
+    display: flex; justify-content: space-between; align-items: center; width: 100%; border: 0; background: #fff;
+    padding: 11px 14px; font: inherit; font-weight: 600; color: var(--pri);
+    padding-bottom: max(11px, env(safe-area-inset-bottom));
+  }
+  .pal-open .pal-toggle { padding-bottom: 11px; }
+  .panel-scroll { padding: 10px; }
+  .sheet { top: auto; height: 88dvh; width: 100%; border-radius: 16px 16px 0 0; }
+  .res-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------- stampa */
+#print-area { display: none; }
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body { display: block; height: auto; overflow: visible; background: #fff; }
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block; font-size: 11px; }
+  #print-area h1 { margin: 0 0 4px; font-size: 20px; }
+  #print-area h2 { font-size: 15px; color: var(--pri); margin: 14px 0 8px; }
+  #print-area svg.unifilare { max-width: 100%; height: auto; }
+  #print-area .pb { break-before: page; }
+  #print-area .enclosure, #print-area .dev, #print-area .rail, #print-area .dev-label { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print-area .rail { border-style: solid; }
+  .tbl { font-size: 10px; }
+  .tbl tr { break-inside: avoid; }
+}
+
+</style>
+</head><body>
+<header class="topbar">
+    <div class="title"><b id="projName">…</b><small id="projInfo"></small></div>
+    <nav class="tabs">
+      <button data-view="quadro">Quadro</button>
+      <button data-view="unifilare">Unifilare</button>
+      <button data-view="distinta">Distinta</button>
+      <button data-view="libreria">Libreria</button>
+      <button data-view="progetti">Progetti</button>
+    </nav>
+    <button class="save-chip" id="saveChip" title="Stato del salvataggio">💾 Salvato</button>
+    <button class="icon-btn" id="bPrint" title="Stampa / PDF">🖨</button>
+  </header>
+  <main id="main"></main>
+
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-head"><h3 id="sheetTitle"></h3><button class="icon-btn dark" id="sheetClose" title="Chiudi">✕</button></div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+
+  <div id="print-area"></div>
+<script type="module">
+// ---- data.js
+// Dati statici: tipi di dispositivo, cavi, portate, libreria di esempio
+
+const TYPES = {
+  MT:    { name: 'Magnetotermico',                  short: 'MT',  color: '#2a2a2a', lever: '#2a2a2a', prot: true, feeds: true },
+  MTD:   { name: 'Magnetotermico differenziale',    short: 'MTD', color: '#1d5fa8', lever: '#1d5fa8', prot: true, rcd: true, feeds: true },
+  ID:    { name: 'Differenziale puro',              short: 'ID',  color: '#1d5fa8', lever: '#1d5fa8', rcd: true, feeds: true },
+  SEZ:   { name: 'Sezionatore / interr. di manovra', short: 'SEZ', color: '#c62828', lever: '#c62828', feeds: true },
+  SPD:   { name: 'Scaricatore sovratensioni (SPD)', short: 'SPD', color: '#e0a800' },
+  CONT:  { name: 'Contattore',                      short: 'KM',  color: '#555', feeds: true },
+  REL:   { name: 'Relè / temporizzatore / orologio', short: 'K',   color: '#555' },
+  PRESA: { name: 'Presa da guida DIN',              short: 'PR',  color: '#777' },
+  SPIA:  { name: 'Spia / strumento',                short: 'H',   color: '#777' },
+  TRASF: { name: 'Trasformatore / alimentatore',    short: 'T',   color: '#777' },
+  VUOTO: { name: 'Copriforo / modulo vuoto',        short: '—',   color: '#bbb' },
+};
+
+const POLES = ['1P', '1P+N', '2P', '3P', '3P+N', '4P'];
+const CURVES = ['', 'B', 'C', 'D', 'K', 'Z'];
+const RCD_CLASSES = ['', 'AC', 'A', 'F', 'B'];
+const SECTIONS = [1.5, 2.5, 4, 6, 10, 16, 25, 35, 50, 70, 95];
+
+// ins: isolante per le tabelle di portata (PVC 70 °C, EPR/XLPE 90 °C); uni: cavo unipolare
+const CABLES = [
+  { id: '',          name: '— nessuno / collegamento interno', ins: null },
+  { id: 'FS17',      name: 'FS17 – unipolare PVC',              ins: 'PVC', uni: true },
+  { id: 'H07V-K',    name: 'H07V-K – unipolare PVC',            ins: 'PVC', uni: true },
+  { id: 'N07V-K',    name: 'N07V-K – unipolare PVC',            ins: 'PVC', uni: true },
+  { id: 'FG17',      name: 'FG17 – unipolare HEPR 90 °C',       ins: 'EPR', uni: true },
+  { id: 'FG16R16',   name: 'FG16R16 – unipolare HEPR 90 °C',    ins: 'EPR', uni: true },
+  { id: 'FG16OR16',  name: 'FG16OR16 – multipolare HEPR 90 °C', ins: 'EPR' },
+  { id: 'FG16OM16',  name: 'FG16OM16 – multipolare HEPR LSZH',  ins: 'EPR' },
+  { id: 'FG18OM16',  name: 'FG18OM16 – multipolare LSZH B2ca',  ins: 'EPR' },
+  { id: 'FROR',      name: 'FROR – multipolare PVC',            ins: 'PVC' },
+  { id: 'H07RN-F',   name: 'H07RN-F – multipolare gomma',       ins: 'PVC' },
+];
+
+const METHODS = [
+  { id: 'B1', name: 'B1 – unipolari in tubo (a parete / incasso)' },
+  { id: 'B2', name: 'B2 – multipolare in tubo (a parete / incasso)' },
+  { id: 'C',  name: 'C – multipolare fissato a parete' },
+  { id: 'E',  name: 'E – multipolare in aria / passerella' },
+];
+
+// Portate indicative in A (rame, 30 °C aria) – IEC 60364-5-52 tab. B.52.2÷B.52.5
+// IZ[isolante][conduttori caricati][metodo][indice sezione]
+const IZ = {
+  PVC: {
+    2: { B1: [17.5, 24, 32, 41, 57, 76, 101, 125, 151, 192, 232],
+         B2: [16.5, 23, 30, 38, 52, 69, 90, 111, 133, 168, 201],
+         C:  [19.5, 27, 36, 46, 63, 85, 112, 138, 168, 213, 258],
+         E:  [22, 30, 40, 51, 70, 94, 119, 148, 180, 232, 282] },
+    3: { B1: [15.5, 21, 28, 36, 50, 68, 89, 110, 134, 171, 207],
+         B2: [15, 20, 27, 34, 46, 62, 80, 99, 118, 149, 179],
+         C:  [17.5, 24, 32, 41, 57, 76, 96, 119, 144, 184, 223],
+         E:  [18.5, 25, 34, 43, 60, 80, 101, 126, 153, 196, 238] },
+  },
+  EPR: {
+    2: { B1: [23, 31, 42, 54, 75, 100, 133, 164, 198, 253, 306],
+         B2: [22, 30, 40, 51, 69, 91, 119, 146, 175, 221, 265],
+         C:  [24, 33, 45, 58, 80, 107, 138, 171, 209, 269, 328],
+         E:  [26, 36, 49, 63, 86, 115, 149, 185, 225, 289, 352] },
+    3: { B1: [20, 28, 37, 48, 66, 88, 117, 144, 175, 222, 269],
+         B2: [19.5, 26, 35, 44, 60, 80, 105, 128, 154, 194, 233],
+         C:  [22, 30, 40, 52, 71, 96, 119, 147, 179, 229, 278],
+         E:  [23, 32, 42, 54, 75, 100, 127, 158, 192, 246, 298] },
+  },
+};
+
+// ---- Libreria di esempio (marca "Generico"): da sostituire/integrare con articoli reali
+let n = 0;
+const mk = (type, poles, modules, In, curve, Idn, rcdClass, Icn, series, desc = '') => ({
+  id: 'seed-' + (++n), brand: 'Generico', series, code: '', type, poles, modules,
+  In, curve, Idn, rcdClass, Icn, desc, price: '', img: '', url: '',
+});
+
+const SEED = [
+  ...[6, 10, 16, 20, 25, 32].map(I => mk('MT', '1P+N', 1, I, 'C', '', '', 4.5, 'Compatto 4,5 kA')),
+  ...[16, 25, 32, 40, 63].map(I => mk('MT', '2P', 2, I, 'C', '', '', 6, 'Serie 6 kA')),
+  ...[16, 20, 25, 32, 40, 63].map(I => mk('MT', '4P', 4, I, 'C', '', '', 6, 'Serie 6 kA')),
+  ...[10, 16, 20, 25].map(I => mk('MTD', '1P+N', 2, I, 'C', 30, 'A', 4.5, 'Magnetotermico diff.')),
+  ...[16, 25, 32].map(I => mk('MTD', '4P', 6, I, 'C', 30, 'A', 6, 'Magnetotermico diff.')),
+  mk('ID', '2P', 2, 25, '', 30, 'A', '', 'Differenziale puro'),
+  mk('ID', '2P', 2, 40, '', 30, 'A', '', 'Differenziale puro'),
+  mk('ID', '2P', 2, 40, '', 30, 'AC', '', 'Differenziale puro'),
+  mk('ID', '2P', 2, 63, '', 30, 'A', '', 'Differenziale puro'),
+  mk('ID', '2P', 2, 63, '', 300, 'A', '', 'Differenziale puro'),
+  mk('ID', '4P', 4, 40, '', 30, 'A', '', 'Differenziale puro'),
+  mk('ID', '4P', 4, 63, '', 30, 'A', '', 'Differenziale puro'),
+  mk('ID', '4P', 4, 63, '', 300, 'A', '', 'Differenziale puro'),
+  mk('SEZ', '2P', 2, 32, '', '', '', '', 'Sezionatore'),
+  mk('SEZ', '2P', 2, 63, '', '', '', '', 'Sezionatore'),
+  mk('SEZ', '4P', 4, 63, '', '', '', '', 'Sezionatore'),
+  mk('SEZ', '4P', 4, 100, '', '', '', '', 'Sezionatore'),
+  mk('SPD', '1P+N', 2, '', '', '', '', '', 'Scaricatore', 'Tipo 2, Imax 40 kA'),
+  mk('SPD', '3P+N', 4, '', '', '', '', '', 'Scaricatore', 'Tipo 2, Imax 40 kA'),
+  mk('CONT', '2P', 1, 25, '', '', '', '', 'Contattore modulare', '2NA, bobina 230 V'),
+  mk('CONT', '4P', 2, 25, '', '', '', '', 'Contattore modulare', '4NA, bobina 230 V'),
+  mk('CONT', '4P', 3, 40, '', '', '', '', 'Contattore modulare', '4NA, bobina 230 V'),
+  mk('REL', '1P', 1, 16, '', '', '', '', 'Relè', 'Relè passo-passo'),
+  mk('REL', '1P', 1, 16, '', '', '', '', 'Temporizzatore', 'Luce scale'),
+  mk('REL', '1P', 2, 16, '', '', '', '', 'Interruttore orario', 'Digitale settimanale'),
+  mk('PRESA', '2P', 3, 16, '', '', '', '', 'Presa DIN', 'Presa 2P+T 16 A'),
+  mk('SPIA', '1P', 1, '', '', '', '', '', 'Spia', 'Spia luminosa 230 V'),
+  mk('TRASF', '1P', 2, '', '', '', '', '', 'Trasformatore', 'Campanello 12 V'),
+  mk('TRASF', '1P', 2, '', '', '', '', '', 'Alimentatore', '24 V DC'),
+  mk('VUOTO', '1P', 1, '', '', '', '', '', 'Copriforo', 'Copriforo 1 modulo'),
+];
+
+// ---- util.js
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = v => { const n = parseFloat(String(v ?? '').replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmt = (v, d = 1) => (v == null || !isFinite(v)) ? '—' : Number(v).toFixed(d).replace('.', ',');
+const fmtSec = s => String(s).replace('.', ',');
+
+const modsOf = it => Math.max(1, Math.round(num(it?.modules) || 1));
+const typeOf = it => TYPES[it?.type] || TYPES.VUOTO;
+const isTri = p => /^[34]/.test(p || '');
+const poleCount = p => ({ '1P': 1, '1P+N': 2, '2P': 2, '3P': 3, '3P+N': 4, '4P': 4 })[p] || 1;
+
+function ratingText(it) {
+  const In = num(it.In);
+  if (it.type === 'MT' || it.type === 'MTD') return In ? `${it.curve || ''}${In}` : '';
+  if (it.type === 'SPD') return 'SPD';
+  return In ? `${In}A` : '';
+}
+
+function idnText(it) {
+  const v = num(it.Idn);
+  if (!v) return '';
+  const s = v >= 1000 ? fmt(v / 1000, 1).replace(',0', '') + 'A' : v + 'mA';
+  return s + (it.rcdClass ? ' ' + it.rcdClass : '');
+}
+
+function specText(it) {
+  return [it.poles, ratingText(it), idnText(it), num(it.Icn) ? fmt(num(it.Icn), 1).replace(',0', '') + ' kA' : '',
+    modsOf(it) + ' mod', it.desc].filter(Boolean).join(' · ');
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add('out'), 2200);
+  setTimeout(() => t.remove(), 2700);
+}
+
+// dentro una pagina incorporata (es. claude.ai) download e stampa sono bloccati
+const EMBEDDED = (() => { try { return window.self !== window.top; } catch { return true; } })();
+
+function download(name, text, mime = 'application/json') {
+  if (EMBEDDED) return showText(name, text);
+  downloadBlob(name, new Blob([text], { type: mime }));
+}
+
+function downloadBlob(name, blob) {
+  if (EMBEDDED) return toast('Il download non è disponibile in questa pagina: usa la versione su GitHub');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+// alternativa al download: mostra il contenuto da copiare
+function showText(name, text) {
+  const w = document.createElement('div');
+  w.className = 'modal';
+  w.innerHTML = `<div class="modal-box wide"><p><b>${esc(name)}</b></p>
+    <p class="small muted">Il download diretto non è disponibile in questa pagina. Copia il testo e salvalo in un file con questo nome (o incollalo in un'e-mail ai colleghi).</p>
+    <textarea readonly rows="8"></textarea>
+    <div class="actions"><button class="btn" data-r="close">Chiudi</button><button class="btn primary" data-r="copy">Copia</button></div></div>`;
+  const ta = w.querySelector('textarea');
+  ta.value = text;
+  w.addEventListener('click', async e => {
+    const r = e.target.closest('[data-r]')?.dataset.r;
+    if (r === 'close' || e.target === w) w.remove();
+    if (r === 'copy') {
+      try { await navigator.clipboard.writeText(text); toast('Copiato negli appunti'); }
+      catch { ta.focus(); ta.select(); toast('Premi Ctrl+C (o «Copia») per copiare'); }
+    }
+  });
+  document.body.appendChild(w);
+}
+
+function pickFile(accept) {
+  return new Promise(res => {
+    const i = document.createElement('input');
+    i.type = 'file';
+    i.accept = accept;
+    i.onchange = () => res(i.files[0] || null);
+    i.click();
+  });
+}
+
+// carica una libreria esterna una volta sola (Excel, ZIP)
+const libCache = {};
+function loadScript(url, globalName) {
+  if (window[globalName]) return Promise.resolve(window[globalName]);
+  if (!libCache[url]) libCache[url] = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = () => window[globalName] ? res(window[globalName]) : rej(new Error('libreria non disponibile'));
+    s.onerror = () => { delete libCache[url]; s.remove(); rej(new Error('impossibile caricare la libreria: serve la connessione')); };
+    document.head.appendChild(s);
+  });
+  return libCache[url];
+}
+
+const options = (arr, v) => arr.map(o => {
+  const [val, lab] = Array.isArray(o) ? o : [o, o];
+  return `<option value="${esc(val)}" ${String(val) === String(v ?? '') ? 'selected' : ''}>${esc(lab)}</option>`;
+}).join('');
+
+// Ritaglia i bordi bianchi/trasparenti e ridimensiona: restituisce un dataURL compatto
+async function processImage(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const s0 = Math.min(1, 1600 / Math.max(w, h));
+    w = Math.max(1, Math.round(w * s0)); h = Math.max(1, Math.round(h * s0));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+      const i = (y * w + xx) * 4;
+      if (d[i + 3] > 20 && !(d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240)) {
+        if (xx < minX) minX = xx; if (xx > maxX) maxX = xx;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) { minX = 0; minY = 0; maxX = w - 1; maxY = h - 1; }
+    minX = Math.max(0, minX - 2); minY = Math.max(0, minY - 2);
+    maxX = Math.min(w - 1, maxX + 2); maxY = Math.min(h - 1, maxY + 2);
+    const tw = maxX - minX + 1, th = maxY - minY + 1;
+    const s = Math.min(1, 600 / th);
+    const o = document.createElement('canvas');
+    o.width = Math.max(1, Math.round(tw * s)); o.height = Math.max(1, Math.round(th * s));
+    o.getContext('2d').drawImage(c, minX, minY, tw, th, 0, 0, o.width, o.height);
+    let out = o.toDataURL('image/webp', 0.85);
+    if (!out.startsWith('data:image/webp')) out = o.toDataURL('image/png');
+    return out;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ---- db.js
+// Archivio locale (IndexedDB): libreria, progetti, impostazioni
+const DB_NAME = 'quadri-elettrici', VERSION = 1;
+let dbp;
+
+function open() {
+  if (dbp) return dbp;
+  dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, VERSION);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      for (const s of ['library', 'projects', 'meta'])
+        if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+
+// riserva in memoria se IndexedDB non è disponibile (i dati non restano salvati)
+const mem = { library: new Map(), projects: new Map(), meta: new Map() };
+let useMem = false;
+const isVolatile = () => useMem;
+function memReq(st, fnName, arg) {
+  const m = mem[st];
+  const v = fnName === 'getAll' ? [...m.values()].map(x => structuredClone(x))
+    : fnName === 'get' ? (m.has(arg) ? structuredClone(m.get(arg)) : undefined)
+    : fnName === 'put' ? (m.set(arg.id, structuredClone(arg)), arg.id)
+    : fnName === 'delete' ? (m.delete(arg), undefined)
+    : (m.clear(), undefined);
+  return v;
+}
+
+async function tx(store, mode, fn) {
+  if (!useMem) {
+    try { await open(); } catch { useMem = true; }
+  }
+  if (useMem) {
+    let out;
+    fn({
+      getAll: () => { out = memReq(store, 'getAll'); },
+      get: id => { out = memReq(store, 'get', id); },
+      put: v => { memReq(store, 'put', v); },
+      delete: id => { memReq(store, 'delete', id); },
+      clear: () => { memReq(store, 'clear'); },
+    });
+    return out;
+  }
+  const db = await open();
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode);
+    const req = fn(t.objectStore(store));
+    let out;
+    if (req) req.onsuccess = () => { out = req.result; };
+    t.oncomplete = () => res(out);
+    t.onerror = () => rej(t.error);
+  });
+}
+
+// ogni scrittura su libreria o quadri segnala una modifica (per il salvataggio in cloud)
+const changed = s => { if (s !== 'meta') onDataChanged(); };
+const db = {
+  all: s => tx(s, 'readonly', st => st.getAll()),
+  get: (s, id) => tx(s, 'readonly', st => st.get(id)),
+  put: (s, v) => tx(s, 'readwrite', st => st.put(v)).then(r => (changed(s), r)),
+  del: (s, id) => tx(s, 'readwrite', st => st.delete(id)).then(r => (changed(s), r)),
+  putMany: (s, arr) => tx(s, 'readwrite', st => { arr.forEach(v => st.put(v)); }).then(r => (changed(s), r)),
+  clear: s => tx(s, 'readwrite', st => st.clear()).then(r => (changed(s), r)),
+};
+
+// ---- calc.js
+// Albero dei circuiti e calcoli elettrici (Ib, Iz, caduta di tensione, verifiche)
+
+const sortDevices = arr => [...arr].sort((a, b) => a.row - b.row || a.pos - b.pos);
+const cableInfo = id => CABLES.find(c => c.id === (id || '')) || CABLES[0];
+
+const PREFIX = { MT: 'Q', MTD: 'Q', ID: 'Q', SEZ: 'Q', SPD: 'F', CONT: 'KM', REL: 'K', PRESA: 'X', SPIA: 'H', TRASF: 'T' };
+
+function tagMap(p) {
+  const m = new Map(), cnt = {};
+  for (const d of sortDevices(p.devices)) {
+    const pre = PREFIX[d.item.type];
+    let auto = '';
+    if (pre) { cnt[pre] = (cnt[pre] || 0) + 1; auto = pre + cnt[pre]; }
+    m.set(d.uid, d.tag || auto);
+  }
+  return m;
+}
+
+function buildTree(p) {
+  const byId = new Map(p.devices.map(d => [d.uid, d]));
+  const validParent = d => {
+    if (!d.parent || !byId.has(d.parent)) return false;
+    let cur = d.parent, guard = 0;
+    while (cur && guard++ < 1000) {
+      if (cur === d.uid) return false;
+      const x = byId.get(cur);
+      cur = x && x.parent && byId.has(x.parent) ? x.parent : null;
+    }
+    return true;
+  };
+  const kids = new Map(p.devices.map(d => [d.uid, []]));
+  const roots = [];
+  for (const d of sortDevices(p.devices)) {
+    if (validParent(d)) kids.get(d.parent).push(d); else roots.push(d);
+  }
+  return { byId, kids, roots };
+}
+
+function descendants(p, uid) {
+  const { kids } = buildTree(p);
+  const out = new Set();
+  const walk = u => (kids.get(u) || []).forEach(k => { out.add(k.uid); walk(k.uid); });
+  walk(uid);
+  return out;
+}
+
+function formation(c, cab, tri) {
+  const n = num(c.cores) || (tri ? 5 : 3);
+  const s = fmtSec(num(c.section) || 0);
+  return cab.uni ? `${n}×(1×${s})` : `${n}G${s}`;
+}
+
+const ok = msg => ({ lvl: 'ok', msg }), warn = msg => ({ lvl: 'warn', msg }), err = msg => ({ lvl: 'err', msg });
+
+function computeAll(p) {
+  const { kids, roots } = buildTree(p);
+  const R = new Map();
+
+  // dal basso: potenze (somma dei figli × coeff. contemporaneità se non indicata)
+  const up = d => {
+    const c = d.circuit || {};
+    const ch = kids.get(d.uid);
+    let sum = 0;
+    for (const k of ch) sum += up(k);
+    let P = num(c.P);
+    if (!(P > 0) && ch.length) P = sum * (num(c.kc) || 1);
+    const tri = isTri(d.item.poles);
+    const V = tri ? 400 : 230;
+    const cos = Math.min(1, num(c.cos) || 0.9);
+    const Ib = P > 0 ? P * 1000 / ((tri ? Math.sqrt(3) : 1) * V * cos) : 0;
+    R.set(d.uid, { P, tri, V, cos, Ib, leaf: !ch.length });
+    return P;
+  };
+  roots.forEach(up);
+
+  // dall'alto: cavi, cadute di tensione cumulative, verifiche
+  const dvMax = num(p.dvMax) || 4;
+  const down = (d, dv0, rcdAbove) => {
+    const r = R.get(d.uid), c = d.circuit || {}, it = d.item, t = typeOf(it);
+    const cab = cableInfo(c.cableType);
+    const In = num(it.In);
+    r.cab = cab;
+    r.Iz = null;
+    if (cab.ins) {
+      const tbl = IZ[cab.ins]?.[r.tri ? 3 : 2]?.[c.method || 'B1'];
+      const i = SECTIONS.indexOf(num(c.section));
+      if (tbl && i >= 0) r.Iz = tbl[i] * (num(c.k) || 1);
+    }
+    r.dv = 0;
+    const L = num(c.L), S = num(c.section);
+    if (cab.ins && L > 0 && S > 0 && r.Ib > 0) {
+      const sin = Math.sqrt(1 - r.cos * r.cos);
+      // R ≈ 0,0225 Ω·mm²/m (rame a regime), X ≈ 0,08 mΩ/m
+      r.dv = (r.tri ? Math.sqrt(3) : 2) * L * r.Ib * (0.0225 / S * r.cos + 0.00008 * sin) / r.V * 100;
+    }
+    r.dvTot = dv0 + r.dv;
+    r.rcd = rcdAbove || !!t.rcd;
+
+    const ck = [];
+    if (t.prot && In && r.Ib > 0)
+      ck.push(r.Ib <= In ? ok(`Ib ${fmt(r.Ib)} A ≤ In ${In} A`) : err(`Ib ${fmt(r.Ib)} A > In ${In} A: interruttore sottodimensionato`));
+    if (t.rcd && !t.prot && In && r.Ib > In)
+      ck.push(err(`Ib ${fmt(r.Ib)} A supera la corrente nominale del differenziale (${In} A)`));
+    if (r.Iz != null) {
+      if (t.prot && In)
+        ck.push(In <= r.Iz ? ok(`In ${In} A ≤ Iz ${fmt(r.Iz)} A`) : err(`In ${In} A > Iz ${fmt(r.Iz)} A: cavo non protetto dal sovraccarico`));
+      else if (r.Ib > r.Iz) ck.push(err(`Ib ${fmt(r.Ib)} A > Iz ${fmt(r.Iz)} A`));
+    } else if (r.leaf && r.P > 0 && !['SPD', 'SPIA', 'VUOTO'].includes(it.type)) {
+      ck.push(warn('Linea in uscita non definita (scegli il tipo di cavo)'));
+    }
+    if (r.dvTot > 0)
+      ck.push(r.dvTot <= dvMax ? ok(`ΔV totale ${fmt(r.dvTot, 2)} % ≤ ${dvMax} %`) : warn(`ΔV totale ${fmt(r.dvTot, 2)} % > ${dvMax} %`));
+    const icc = num(p.icc), icn = num(it.Icn);
+    if (icc && icn && t.prot)
+      ck.push(icn >= icc ? ok(`Icn ${icn} kA ≥ Icc ${icc} kA`) : err(`Potere di interruzione ${icn} kA < Icc presunta ${icc} kA`));
+    if (r.leaf && t.prot && !r.rcd) ck.push(warn('Nessun differenziale a monte del circuito'));
+
+    r.checks = ck;
+    r.status = ck.some(x => x.lvl === 'err') ? 'err' : ck.some(x => x.lvl === 'warn') ? 'warn' : 'ok';
+    for (const k of kids.get(d.uid)) down(k, r.dvTot, r.rcd);
+  };
+  roots.forEach(d => down(d, num(p.dvUp), false));
+  return R;
+}
+
+// ---- draw.js
+// Disegno: fronte dispositivo (quando manca la foto) e schema unifilare
+
+const F = 'font-family="Arial,Helvetica,sans-serif"';
+const wrap = (W, inner) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 90" preserveAspectRatio="xMidYMid meet">${inner}</svg>`;
+
+function deviceSVG(it) {
+  const m = modsOf(it), W = 18 * m, t = typeOf(it);
+  let s = `<rect x=".4" y=".4" width="${W - .8}" height="89.2" rx="1.5" fill="#f5f5f1" stroke="#9c9c95" stroke-width=".8"/>`;
+  if (it.type === 'VUOTO') return wrap(W, s + `<rect x="3" y="18" width="${W - 6}" height="54" rx="1" fill="#e9e9e4"/>`);
+
+  s += `<rect x="1" y="1" width="${W - 2}" height="13" fill="#e2e2dc"/><rect x="1" y="76" width="${W - 2}" height="13" fill="#e2e2dc"/>`;
+  for (let i = 0; i < m; i++) {
+    const cx = 9 + 18 * i;
+    for (const cy of [7.5, 82.5])
+      s += `<circle cx="${cx}" cy="${cy}" r="3.4" fill="#cfcfc8" stroke="#8a8a84" stroke-width=".6"/><line x1="${cx - 2.2}" y1="${cy}" x2="${cx + 2.2}" y2="${cy}" stroke="#777" stroke-width=".8"/>`;
+  }
+  s += `<rect x="1" y="14.5" width="${W - 2}" height="2.2" fill="${t.color}"/>`;
+  if (it.brand) s += `<text x="${W / 2}" y="22" font-size="4.2" text-anchor="middle" fill="#777" ${F}>${esc(it.brand.slice(0, m * 5))}</text>`;
+  const rt = ratingText(it);
+  if (rt) s += `<text x="${W / 2}" y="31" font-size="${m === 1 ? 7 : 8}" font-weight="bold" text-anchor="middle" fill="#222" ${F}>${esc(rt)}</text>`;
+  const idn = idnText(it);
+  if (idn) s += `<text x="${W / 2}" y="38.5" font-size="${m === 1 ? 3.8 : 4.6}" text-anchor="middle" fill="#1d5fa8" ${F}>${esc(idn)}</text>`;
+
+  switch (it.type) {
+    case 'MT': case 'MTD': case 'ID': case 'SEZ': {
+      const col = t.lever;
+      if (m > 1) s += `<rect x="5" y="55" width="${W - 10}" height="3.5" fill="${col}"/>`;
+      for (let i = 0; i < m; i++)
+        s += `<rect x="${18 * i + 5}" y="46" width="8" height="20" rx="1.6" fill="${col}"/><rect x="${18 * i + 6.5}" y="47.5" width="5" height="3" rx=".6" fill="#fff" opacity=".35"/>`;
+      s += `<rect x="${W / 2 - 3}" y="41" width="6" height="2.6" fill="#2e9d46"/>`;
+      if (t.rcd) s += `<rect x="${W - 9}" y="68" width="6" height="5.5" rx="1" fill="#f2c200" stroke="#a88600" stroke-width=".4"/><text x="${W - 6}" y="72.3" font-size="3.6" text-anchor="middle" ${F}>T</text>`;
+      break;
+    }
+    case 'SPD':
+      s += `<rect x="3" y="44" width="${W - 6}" height="14" rx="1.5" fill="#3aa35a"/><text x="${W / 2}" y="66" font-size="4.5" text-anchor="middle" fill="#555" ${F}>${m > 1 ? 'Tipo 2' : 'T2'}</text>`;
+      break;
+    case 'CONT': case 'REL':
+      s += `<rect x="${W / 2 - 4}" y="46" width="8" height="12" rx="1" fill="#444"/><text x="${W / 2}" y="68" font-size="4" text-anchor="middle" fill="#555" ${F}>${it.type === 'CONT' ? 'A1 A2' : 'REL'}</text>`;
+      break;
+    case 'PRESA': {
+      const r = Math.min(W / 2 - 3, 15);
+      s += `<circle cx="${W / 2}" cy="57" r="${r}" fill="#fff" stroke="#999"/><circle cx="${W / 2 - r * .45}" cy="57" r="1.8" fill="#333"/><circle cx="${W / 2 + r * .45}" cy="57" r="1.8" fill="#333"/><rect x="${W / 2 - 1}" y="${57 - r * .8}" width="2" height="4" fill="#777"/>`;
+      break;
+    }
+    case 'SPIA':
+      s += `<circle cx="${W / 2}" cy="56" r="6" fill="#e53935" stroke="#8e1c1a"/><circle cx="${W / 2 - 2}" cy="54" r="1.6" fill="#fff" opacity=".6"/>`;
+      break;
+    case 'TRASF':
+      s += `<text x="${W / 2}" y="60" font-size="9" text-anchor="middle" fill="#444" ${F}>~/=</text>`;
+      break;
+  }
+  return wrap(W, s);
+}
+
+// ---------- Simboli unifilari (x centrale, y in alto, altezza 62)
+function symbol(it, x, y) {
+  const t = it.type, tp = typeOf(it);
+  const n = poleCount(it.poles);
+  let s = '';
+  const ticks = Array.from({ length: n }, (_, i) =>
+    `<line class="ln" x1="${x - 4}" y1="${y + 9 + i * 3}" x2="${x + 4}" y2="${y + 5 + i * 3}"/>`).join('');
+  if (['MT', 'MTD', 'ID', 'SEZ', 'CONT'].includes(t)) {
+    s += `<line class="ln" x1="${x}" y1="${y}" x2="${x}" y2="${y + 20}"/>${ticks}`;
+    s += `<line class="ln" x1="${x}" y1="${y + 44}" x2="${x - 11}" y2="${y + 21}"/>`;
+    s += `<line class="ln" x1="${x}" y1="${y + 44}" x2="${x}" y2="${y + 62}"/>`;
+    if (t === 'MT' || t === 'MTD')
+      s += `<line class="ln" x1="${x - 3.5}" y1="${y + 16.5}" x2="${x + 3.5}" y2="${y + 23.5}"/><line class="ln" x1="${x + 3.5}" y1="${y + 16.5}" x2="${x - 3.5}" y2="${y + 23.5}"/>`;
+    if (t === 'SEZ') s += `<line class="ln" x1="${x - 4}" y1="${y + 20}" x2="${x + 4}" y2="${y + 20}"/>`;
+    if (t === 'CONT') s += `<path class="ln" d="M${x - 4} ${y + 20} a4 4 0 0 0 8 0"/>`;
+    if (tp.rcd)
+      s += `<ellipse class="ln" cx="${x}" cy="${y + 53}" rx="9" ry="3.5"/><path class="ln dash" d="M${x - 9} ${y + 53} H${x - 16} V${y + 33} H${x - 6}"/>`;
+  } else {
+    s += `<line class="ln" x1="${x}" y1="${y}" x2="${x}" y2="${y + 18}"/>${ticks}`;
+    s += `<rect class="ln" x="${x - 13}" y="${y + 18}" width="26" height="26" fill="#fff"/>`;
+    s += `<text class="s" x="${x}" y="${y + 34.5}" text-anchor="middle">${esc(tp.short)}</text>`;
+    s += `<line class="ln" x1="${x}" y1="${y + 44}" x2="${x}" y2="${y + 62}"/>`;
+  }
+  return s;
+}
+
+const cut = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+
+function unifilareSVG(p, res, tags) {
+  if (!p.devices.length) return '<p class="muted pad">Nessun dispositivo nel quadro: aggiungine qualcuno dalla scheda «Quadro».</p>';
+  const { kids, roots } = buildTree(p);
+  const COL = 104, LEFT = 112, LEVEL = 128, TOP = 70, RH = 17;
+  const pos = new Map();
+  let leaf = 0, maxD = 0;
+  const lay = (d, dep) => {
+    maxD = Math.max(maxD, dep);
+    const ch = kids.get(d.uid);
+    if (!ch.length) { const x = LEFT + leaf * COL + COL / 2; leaf++; pos.set(d.uid, { x, dep, leaf: true }); return x; }
+    const xs = ch.map(c => lay(c, dep + 1));
+    const x = (xs[0] + xs[xs.length - 1]) / 2;
+    pos.set(d.uid, { x, dep, x1: xs[0], x2: xs[xs.length - 1] });
+    return x;
+  };
+  const rx = roots.map(r => lay(r, 0));
+  const busY = dep => TOP + dep * LEVEL;
+  const tTop = busY(maxD) + 112;
+
+  const ROWS = [
+    ['Sigla', d => tags.get(d.uid) || ''],
+    ['Circuito', d => d.label || ''],
+    ['Dispositivo', d => `${typeOf(d.item).short} ${d.item.poles}`],
+    ['Taratura', d => [ratingText(d.item), num(d.item.Icn) ? d.item.Icn + 'kA' : ''].filter(Boolean).join(' ')],
+    ['Differenziale', d => idnText(d.item)],
+    ['Cavo', d => d.circuit?.cableType || '—'],
+    ['Formazione', (d, r) => r.cab.ins ? formation(d.circuit, r.cab, r.tri) : '—'],
+    ['Posa', (d, r) => r.cab.ins ? (d.circuit.method || 'B1') : '—'],
+    ['Lunghezza (m)', d => num(d.circuit?.L) ? fmt(num(d.circuit.L), 0) : '—'],
+    ['P (kW)', (d, r) => r.P > 0 ? fmt(r.P, 2) : '—'],
+    ['Ib (A)', (d, r) => r.Ib > 0 ? fmt(r.Ib) : '—'],
+    ['Iz (A)', (d, r) => r.Iz != null ? fmt(r.Iz) : '—'],
+    ['ΔV tot (%)', (d, r) => r.dvTot > 0 ? fmt(r.dvTot, 2) : '—'],
+    ['Esito', (d, r) => ({ ok: 'OK', warn: 'Attenzione', err: 'NON OK' })[r.status]],
+  ];
+  const W = LEFT + leaf * COL + 14;
+  const H = tTop + ROWS.length * RH + 14;
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" class="unifilare" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<style>.ln{stroke:#111;stroke-width:1.4;fill:none}.dash{stroke-dasharray:2 2;stroke-width:1}.bus{stroke:#111;stroke-width:3.2}
+.t{font:bold 10px Arial,sans-serif;fill:#111}.s{font:9px Arial,sans-serif;fill:#333}.h{font:bold 9px Arial,sans-serif;fill:#1f3a5f}
+.g{stroke:#b9bec7;stroke-width:.7}.ok{fill:#2e7d32}.warn{fill:#b26a00}.err{fill:#c62828}.hit{fill:transparent}</style>
+<rect width="${W}" height="${H}" fill="#fff"/>`;
+
+  // alimentazione + sbarra principale
+  const sx = (rx[0] + rx[rx.length - 1]) / 2;
+  const sup = p.supply === '400' ? '400 V – 3F+N+PE' : '230 V – F+N+PE';
+  s += `<text class="t" x="${sx}" y="16" text-anchor="middle">Alimentazione</text><text class="s" x="${sx}" y="29" text-anchor="middle">${sup}${num(p.icc) ? ' · Icc ' + p.icc + ' kA' : ''}</text>`;
+  s += `<line class="ln" x1="${sx}" y1="36" x2="${sx}" y2="${busY(0)}"/>`;
+  if (rx.length > 1) s += `<line class="bus" x1="${rx[0]}" y1="${busY(0)}" x2="${rx[rx.length - 1]}" y2="${busY(0)}"/>`;
+
+  for (const d of p.devices) {
+    const P = pos.get(d.uid); if (!P) continue;
+    const r = res.get(d.uid), it = d.item;
+    const y0 = busY(P.dep), yS = y0 + 12, yE = yS + 62;
+    let g = `<g class="node" data-uid="${d.uid}"><rect class="hit" x="${P.x - 22}" y="${y0}" width="70" height="${P.leaf ? tTop - y0 : 90}"/>`;
+    g += `<line class="ln" x1="${P.x}" y1="${y0}" x2="${P.x}" y2="${yS}"/>` + symbol(it, P.x, yS);
+    const tx = P.x + 13;
+    g += `<text class="t" x="${tx}" y="${yS + 14}">${esc(tags.get(d.uid) || '')}</text>`;
+    g += `<text class="s" x="${tx}" y="${yS + 26}">${esc(ratingText(it))}${num(it.Icn) ? ' ' + esc(it.Icn) + 'kA' : ''}</text>`;
+    if (idnText(it)) g += `<text class="s" x="${tx}" y="${yS + 37}">${esc(idnText(it))}</text>`;
+    g += `<text class="s" x="${tx}" y="${yS + 48}">${esc(it.poles)}</text>`;
+    if (P.leaf) {
+      g += `<line class="ln" x1="${P.x}" y1="${yE}" x2="${P.x}" y2="${tTop - 8}"/><path d="M${P.x - 4} ${tTop - 10} L${P.x} ${tTop - 3} L${P.x + 4} ${tTop - 10} Z" fill="#111"/>`;
+    } else {
+      g += `<line class="ln" x1="${P.x}" y1="${yE}" x2="${P.x}" y2="${busY(P.dep + 1)}"/>`;
+      g += `<line class="bus" x1="${P.x1}" y1="${busY(P.dep + 1)}" x2="${P.x2}" y2="${busY(P.dep + 1)}"/>`;
+      const info = [d.label && cut(d.label, 16), r.P > 0 ? `P ${fmt(r.P, 2)} kW · Ib ${fmt(r.Ib)} A` : ''].filter(Boolean);
+      info.forEach((txt, i) => { g += `<text class="s" x="${tx}" y="${yE + 12 + i * 11}">${esc(txt)}</text>`; });
+    }
+    s += g + '</g>';
+  }
+
+  // tabella dati circuiti terminali
+  const leaves = p.devices.filter(d => pos.get(d.uid)?.leaf).sort((a, b) => pos.get(a.uid).x - pos.get(b.uid).x);
+  s += `<line class="g" x1="4" y1="${tTop}" x2="${W - 4}" y2="${tTop}"/>`;
+  ROWS.forEach(([lab, fn], i) => {
+    const y = tTop + i * RH;
+    s += `<text class="h" x="6" y="${y + 12}">${esc(lab)}</text><line class="g" x1="4" y1="${y + RH}" x2="${W - 4}" y2="${y + RH}"/>`;
+    for (const d of leaves) {
+      const x = pos.get(d.uid).x, r = res.get(d.uid);
+      const v = fn(d, r);
+      const cls = lab === 'Esito' ? r.status : 's';
+      s += `<text class="${cls === 's' ? 's' : 's ' + cls}" x="${x}" y="${y + 12}" text-anchor="middle">${esc(cut(v, 17))}${String(v).length > 17 ? `<title>${esc(v)}</title>` : ''}</text>`;
+    }
+  });
+  for (let k = 0; k <= leaf; k++) {
+    const x = LEFT + k * COL;
+    s += `<line class="g" x1="${x}" y1="${tTop}" x2="${x}" y2="${tTop + ROWS.length * RH}"/>`;
+  }
+  return s + '</svg>';
+}
+
+// ---- app.js
+
+const TYPE_ORDER = Object.keys(TYPES);
+const state = {
+  library: [], projects: [], project: null,
+  view: 'quadro', placing: null, selected: null,
+  M: window.innerWidth < 760 ? 22 : 30,
+  lf: { q: '', type: '', brand: '' },
+  palOpen: true, sheet: null, editItem: null,
+};
+
+// ---------------------------------------------------------------- persistenza
+let saveT = null;
+function saveProject() {
+  const p = state.project;
+  p.updated = Date.now();
+  clearTimeout(saveT);
+  setChip('dirty');
+  saveT = setTimeout(flushProject, 250);
+}
+// scrive subito il quadro aperto (usato anche alla chiusura della pagina)
+function flushProject() {
+  if (saveT === null) return Promise.resolve();
+  clearTimeout(saveT);
+  saveT = null;
+  return db.put('projects', state.project).catch(e => { setChip('err'); toast('Errore salvataggio: ' + e.message); });
+}
+
+function newProject(name = 'Nuovo quadro') {
+  return { id: uid(), name, client: '', place: '', notes: '', supply: '230', icc: 4.5, dvUp: 0, dvMax: 4,
+    rows: 2, mods: 12, devices: [], created: Date.now(), updated: Date.now() };
+}
+
+async function setLast(id) {
+  const m = (await db.get('meta', 'app')) || { id: 'app' };
+  m.last = id;
+  await db.put('meta', m);
+}
+
+function openProject(p) {
+  flushProject();
+  state.project = p;
+  state.selected = null;
+  state.placing = null;
+  closeSheet();
+  setLast(p.id);
+}
+
+// ---------------------------------------------------------------- helpers
+const face = it => it.img
+  ? `<img src="${esc(it.img)}" alt="" draggable="false" loading="lazy">`
+  : deviceSVG(it);
+const lineTitle = it => `${ratingText(it) || it.desc || typeOf(it).name} ${it.poles}`;
+const brands = () => [...new Set(state.library.map(i => i.brand).filter(Boolean))].sort();
+const sortItems = arr => arr.sort((a, b) =>
+  TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type) || (a.brand || '').localeCompare(b.brand || '') ||
+  modsOf(a) - modsOf(b) || num(a.In) - num(b.In) || num(a.Idn) - num(b.Idn));
+
+function filteredLib() {
+  const { q, type, brand } = state.lf;
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return sortItems(state.library.filter(it => {
+    if (type && it.type !== type) return false;
+    if (brand && it.brand !== brand) return false;
+    const txt = [it.brand, it.series, it.code, typeOf(it).name, typeOf(it).short, it.poles, ratingText(it),
+      idnText(it), it.desc].join(' ').toLowerCase();
+    return words.every(w => txt.includes(w));
+  }));
+}
+
+function isFree(row, start, m, ignore) {
+  const p = state.project;
+  if (start < 0 || start + m > p.mods) return false;
+  return p.devices.every(d => d.uid === ignore || d.row !== row || d.pos + modsOf(d.item) <= start || d.pos >= start + m);
+}
+
+function guessSection(In) {
+  In = num(In);
+  if (!In || In <= 10) return 1.5;
+  if (In <= 16) return 2.5;
+  if (In <= 25) return 4;
+  if (In <= 32) return 6;
+  if (In <= 40) return 10;
+  if (In <= 63) return 16;
+  return 25;
+}
+
+const defaultCircuit = it => ({ P: '', cos: '0.9', kc: '1', cableType: '', method: 'B1',
+  section: guessSection(it.In), cores: '', L: '', k: '1' });
+
+function autoParent(d) {
+  const p = state.project;
+  if (d.main) return null;
+  const main = p.devices.find(x => x.main && x.uid !== d.uid);
+  if (d.item.type !== 'ID' && d.item.type !== 'SEZ') {
+    const left = p.devices.filter(x => x.row === d.row && x.pos < d.pos && x.item.type === 'ID' && x.uid !== d.uid)
+      .sort((a, b) => b.pos - a.pos)[0];
+    if (left) return left.uid;
+  }
+  return main ? main.uid : null;
+}
+
+// ---------------------------------------------------------------- header / tabs
+function renderHeader() {
+  const p = state.project;
+  $('#projName').textContent = p.name || 'Senza nome';
+  $('#projInfo').textContent = `${p.supply === '400' ? 'Trifase 400 V' : 'Monofase 230 V'} · ${p.rows} × ${p.mods} moduli`;
+  $$('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.view === state.view));
+}
+
+function render() {
+  renderHeader();
+  const main = $('#main');
+  main.scrollTop = 0;
+  ({ quadro: renderQuadro, unifilare: renderUnifilare, distinta: renderDistinta,
+    libreria: renderLibreria, progetti: renderProgetti })[state.view](main);
+}
+
+// ---------------------------------------------------------------- vista QUADRO
+function panelHTML(p, M, res, tg, interactive) {
+  let h = `<div class="enclosure" style="--m:${M}px">`;
+  for (let r = 0; r < p.rows; r++) {
+    h += `<div class="row"><div class="row-n">${r + 1}</div><div class="rail ${interactive && state.placing ? 'placing' : ''}" data-row="${r}" style="width:${p.mods * M}px;height:${M * 5}px">`;
+    for (const d of p.devices.filter(x => x.row === r)) {
+      const st = res.get(d.uid)?.status;
+      h += `<div class="dev ${interactive && state.selected === d.uid ? 'sel' : ''}" data-uid="${d.uid}" style="left:${d.pos * M}px;width:${modsOf(d.item) * M}px">
+        ${face(d.item)}${interactive && st && st !== 'ok' ? `<span class="dot ${st}"></span>` : ''}
+        <div class="dev-label"><b>${esc(tg.get(d.uid))}</b> ${esc(d.label)}</div></div>`;
+    }
+    h += `</div></div>`;
+  }
+  return h + '</div>';
+}
+
+function renderQuadro(main) {
+  main.innerHTML = `
+  <div class="q-layout ${state.palOpen ? 'pal-open' : ''}">
+    <div class="q-main">
+      <div class="toolbar">
+        <button class="btn" id="bProj">⚙ Dati quadro</button>
+        <div class="grp"><button class="btn icon" id="zOut" title="Riduci">−</button><button class="btn icon" id="zIn" title="Ingrandisci">+</button></div>
+        <span class="muted small" id="qStat"></span>
+      </div>
+      <div class="panel-scroll" id="panelScroll"></div>
+    </div>
+    <aside class="palette">
+      <button class="pal-toggle" id="palToggle"><span>Libreria componenti</span><span>${state.palOpen ? '▼' : '▲'}</span></button>
+      <div class="pal-body">
+        <div class="pal-filters">
+          <input id="palQ" type="search" placeholder="Cerca: C16, 30mA, marca…" value="${esc(state.lf.q)}">
+          <select id="palType"><option value="">Tutti i tipi</option>${options(TYPE_ORDER.map(k => [k, TYPES[k].name]), state.lf.type)}</select>
+          <select id="palBrand"><option value="">Tutte le marche</option>${options(brands(), state.lf.brand)}</select>
+        </div>
+        <div class="pal-hint" id="palHint"></div>
+        <div class="pal-list" id="palList"></div>
+      </div>
+    </aside>
+  </div>`;
+  $('#bProj').onclick = openProjectSheet;
+  $('#zOut').onclick = () => { state.M = Math.max(14, state.M - 4); renderPanel(); };
+  $('#zIn').onclick = () => { state.M = Math.min(64, state.M + 4); renderPanel(); };
+  $('#palToggle').onclick = () => { state.palOpen = !state.palOpen; renderQuadro(main); };
+  $('#palQ').oninput = e => { state.lf.q = e.target.value; renderPalette(); };
+  $('#palType').onchange = e => { state.lf.type = e.target.value; renderPalette(); };
+  $('#palBrand').onchange = e => { state.lf.brand = e.target.value; renderPalette(); };
+  renderPanel();
+  renderPalette();
+}
+
+function renderPalette() {
+  const list = $('#palList'); if (!list) return;
+  const items = filteredLib();
+  list.innerHTML = items.length ? items.map(it => `
+    <div class="pal-item ${state.placing?.id === it.id ? 'active' : ''}" data-id="${esc(it.id)}">
+      <div class="pal-thumb" style="width:${modsOf(it) * 12.4}px">${face(it)}</div>
+      <div class="pal-txt"><b>${esc(lineTitle(it))}</b> <span class="tag">${esc(typeOf(it).short)}</span>
+        ${idnText(it) ? `<span class="tag blue">${esc(idnText(it))}</span>` : ''}
+        <br><small>${esc(it.brand)} ${esc(it.series)}</small>
+        <br><small class="muted">${esc(it.code || '')}${it.code ? ' · ' : ''}${modsOf(it)} mod${it.desc && ratingText(it) ? ' · ' + esc(it.desc) : ''}</small></div>
+    </div>`).join('') : '<p class="muted pad">Nessun articolo trovato.</p>';
+  $$('.pal-item', list).forEach(el => el.onclick = () => {
+    const it = state.library.find(i => i.id === el.dataset.id);
+    state.placing = state.placing?.id === it.id ? null : it;
+    if (state.placing && window.innerWidth < 760) { state.palOpen = false; renderQuadro($('#main')); return; }
+    renderPalette(); renderPanel();
+  });
+  renderHint();
+}
+
+function renderHint() {
+  const html = state.placing
+    ? `<span>➕ Tocca un punto libero della guida per inserire <b>${esc(lineTitle(state.placing))}</b></span><button class="btn small" id="cancelPlace">Fine</button>`
+    : '';
+  const h = $('#palHint');
+  if (h) { h.innerHTML = html; h.hidden = !html; }
+  let bar = $('#placeBar');
+  if (window.innerWidth < 760 && html && !state.palOpen) {
+    if (!bar) { bar = document.createElement('div'); bar.id = 'placeBar'; bar.className = 'place-bar'; $('.q-main')?.prepend(bar); }
+    bar.innerHTML = html;
+  } else if (bar) bar.remove();
+  $$('#cancelPlace').forEach(b => b.onclick = () => { state.placing = null; renderPalette(); renderPanel(); });
+}
+
+function renderPanel() {
+  const el = $('#panelScroll'); if (!el) return;
+  const p = state.project, res = computeAll(p), tg = tagMap(p);
+  el.innerHTML = panelHTML(p, state.M, res, tg, true);
+  const used = p.devices.reduce((s, d) => s + modsOf(d.item), 0);
+  const nErr = [...res.values()].filter(r => r.status === 'err').length;
+  $('#qStat').textContent = `${p.devices.length} dispositivi · ${used}/${p.rows * p.mods} moduli occupati${nErr ? ` · ⚠ ${nErr} verifiche non superate` : ''}`;
+  $$('.rail', el).forEach(rail => rail.addEventListener('click', e => {
+    if (e.target.closest('.dev')) return;
+    if (!state.placing) {
+      if (state.selected) { state.selected = null; closeSheet(); renderPanel(); }
+      return;
+    }
+    const r = rail.getBoundingClientRect();
+    placeAt(+rail.dataset.row, (e.clientX - r.left) / state.M);
+  }));
+  $$('.dev', el).forEach(bindDrag);
+  renderHint();
+}
+
+function placeAt(row, xMod) {
+  const it = state.placing, p = state.project, m = modsOf(it);
+  if (m > p.mods) return toast('Il dispositivo è più largo della fila');
+  const want = Math.round(xMod - m / 2);
+  let best = null;
+  for (let s = 0; s <= p.mods - m; s++)
+    if (isFree(row, s, m) && (best === null || Math.abs(s - want) < Math.abs(best - want))) best = s;
+  if (best === null) return toast('Spazio insufficiente in questa fila');
+  const { img, ...rest } = it;
+  const d = { uid: uid(), item: structuredClone({ ...rest, img }), libId: it.id, row, pos: best,
+    label: '', tag: '', main: false, parent: null, circuit: defaultCircuit(it) };
+  if (!p.devices.some(x => x.main) && ['SEZ', 'MT', 'MTD', 'ID'].includes(it.type) && !p.devices.length) d.main = true;
+  d.parent = autoParent(d);
+  p.devices.push(d);
+  saveProject();
+  renderPanel();
+}
+
+function bindDrag(el) {
+  el.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    if (state.placing) { state.placing = null; renderPalette(); }
+    const p = state.project, d = p.devices.find(x => x.uid === el.dataset.uid);
+    const r = el.getBoundingClientRect();
+    const st = { x: e.clientX, y: e.clientY, ox: e.clientX - r.left, moved: false };
+    el.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const dx = ev.clientX - st.x, dy = ev.clientY - st.y;
+      if (!st.moved && Math.hypot(dx, dy) < 7) return;
+      st.moved = true;
+      el.classList.add('dragging');
+      el.style.transform = `translate(${dx}px,${dy}px)`;
+    };
+    const up = ev => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      if (!st.moved) { openDevice(d.uid); return; }
+      el.style.pointerEvents = 'none';
+      const rail = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.rail');
+      if (rail && ev.type === 'pointerup') {
+        const rr = rail.getBoundingClientRect();
+        const start = Math.round((ev.clientX - st.ox - rr.left) / state.M);
+        const row = +rail.dataset.row, m = modsOf(d.item);
+        if (isFree(row, start, m, d.uid)) { d.row = row; d.pos = start; saveProject(); }
+        else toast('Posizione non disponibile');
+      }
+      renderPanel();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  });
+}
+
+// ---------------------------------------------------------------- pannello laterale (sheet)
+function openSheet(kind, title, html) {
+  state.sheet = kind;
+  $('#sheetTitle').textContent = title;
+  $('#sheetBody').innerHTML = html;
+  $('#sheet').hidden = false;
+  $('#sheetBody').scrollTop = 0;
+}
+function closeSheet() {
+  state.sheet = null;
+  state.editItem = null;
+  $('#sheet').hidden = true;
+  if (state.selected) { state.selected = null; renderPanel(); }
+}
+
+// ---- dispositivo
+function openDevice(id) {
+  const p = state.project, d = p.devices.find(x => x.uid === id);
+  if (!d) return;
+  state.selected = id;
+  renderPanel();
+  const tg = tagMap(p), it = d.item, c = d.circuit, tri = isTri(it.poles);
+  const desc = descendants(p, id);
+  const parentOpts = '<option value="">— nessuno (direttamente dall\'alimentazione)</option>' +
+    sortDevices(p.devices).filter(x => x.uid !== id && !desc.has(x.uid) && typeOf(x.item).feeds)
+      .map(x => `<option value="${x.uid}" ${d.parent === x.uid ? 'selected' : ''}>${esc(tg.get(x.uid))} – ${esc(typeOf(x.item).short)} ${esc(ratingText(x.item))} ${esc(idnText(x.item))} ${esc(x.label)}</option>`).join('');
+  const m = modsOf(it);
+  openSheet('device', `${tg.get(id) || ''} ${typeOf(it).name}`, `
+    <div class="devhead"><div class="devthumb" style="width:${m * 22}px">${face(it)}</div>
+      <div><b>${esc(it.brand)} ${esc(it.series)}</b><br><span class="muted">${esc(it.code || 'senza codice')}</span><br><small>${esc(specText(it))}</small></div></div>
+    <div class="actions top">
+      <button class="btn" data-a="left" title="Sposta a sinistra">◀</button><button class="btn" data-a="right" title="Sposta a destra">▶</button>
+      <button class="btn" data-a="up" title="Fila sopra">▲</button><button class="btn" data-a="down" title="Fila sotto">▼</button>
+      <button class="btn danger" data-a="del">🗑 Elimina</button>
+    </div>
+    <div class="form">
+      <label>Sigla<input data-f="tag" value="${esc(d.tag)}" placeholder="${esc(tg.get(id))} (auto)"></label>
+      <label>Descrizione circuito<input data-f="label" value="${esc(d.label)}" placeholder="es. Luci cucina"></label>
+      <label class="chk wide"><input type="checkbox" data-f="main" ${d.main ? 'checked' : ''}> Interruttore generale del quadro</label>
+      <label class="wide">Alimentato da (a monte)<select data-f="parent">${parentOpts}</select></label>
+      <h4 class="wide">Carico</h4>
+      <label>Potenza (kW)<input data-c="P" inputmode="decimal" value="${esc(c.P)}" placeholder="somma a valle"></label>
+      <label>cos φ<input data-c="cos" inputmode="decimal" value="${esc(c.cos)}"></label>
+      <label>Coeff. contemporaneità<input data-c="kc" inputmode="decimal" value="${esc(c.kc)}" title="Usato quando la potenza è la somma dei circuiti a valle"></label>
+      <h4 class="wide">Linea in uscita</h4>
+      <label class="wide">Tipo di cavo<select data-c="cableType">${options(CABLES.map(x => [x.id, x.name]), c.cableType)}</select></label>
+      <label class="wide">Modalità di posa<select data-c="method">${options(METHODS.map(x => [x.id, x.name]), c.method)}</select></label>
+      <label>Sezione (mm²)<select data-c="section">${options(SECTIONS.map(s => [s, fmtSec(s)]), c.section)}</select></label>
+      <label>N. conduttori<input data-c="cores" inputmode="numeric" value="${esc(c.cores)}" placeholder="${tri ? 5 : 3}"></label>
+      <label>Lunghezza (m)<input data-c="L" inputmode="decimal" value="${esc(c.L)}"></label>
+      <label>Fattore correzione k<input data-c="k" inputmode="decimal" value="${esc(c.k)}" title="Temperatura, raggruppamento… (1 = nessuna correzione)"></label>
+    </div>
+    <div id="devRes"></div>
+    <div class="actions">
+      <button class="btn" data-a="dup">Duplica</button><button class="btn danger" data-a="del">🗑 Elimina</button>
+    </div>`);
+  const body = $('#sheetBody');
+  const after = () => { saveProject(); renderPanel(); renderDevRes(d); };
+  $$('[data-f]', body).forEach(inp => inp.addEventListener(inp.matches('select,[type=checkbox]') ? 'change' : 'input', () => {
+    const f = inp.dataset.f;
+    if (f === 'main') {
+      if (inp.checked) { p.devices.forEach(x => { x.main = false; }); d.parent = null; $('[data-f=parent]', body).value = ''; }
+      d.main = inp.checked;
+    } else if (f === 'parent') d.parent = inp.value || null;
+    else d[f] = inp.value;
+    after();
+  }));
+  $$('[data-c]', body).forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+    d.circuit[inp.dataset.c] = inp.value;
+    after();
+  }));
+  $$('[data-a]', body).forEach(b => b.onclick = () => {
+    const a = b.dataset.a, m = modsOf(it);
+    if (a === 'left' || a === 'right') {
+      const np = d.pos + (a === 'left' ? -1 : 1);
+      if (isFree(d.row, np, m, d.uid)) { d.pos = np; saveProject(); renderPanel(); } else toast('Spazio occupato');
+    } else if (a === 'up' || a === 'down') {
+      const nr = d.row + (a === 'up' ? -1 : 1);
+      if (nr < 0 || nr >= p.rows) return toast('Non ci sono altre file in quella direzione');
+      let best = null;
+      for (let s = 0; s <= p.mods - m; s++)
+        if (isFree(nr, s, m, d.uid) && (best === null || Math.abs(s - d.pos) < Math.abs(best - d.pos))) best = s;
+      if (best === null) return toast('Spazio insufficiente nella fila');
+      d.row = nr; d.pos = best; saveProject(); renderPanel();
+    } else if (a === 'dup') {
+      let spot = null;
+      for (let r = d.row; r < p.rows && !spot; r++)
+        for (let s = r === d.row ? d.pos + m : 0; s <= p.mods - m; s++) if (isFree(r, s, m)) { spot = [r, s]; break; }
+      for (let r = 0; r < d.row && !spot; r++)
+        for (let s = 0; s <= p.mods - m; s++) if (isFree(r, s, m)) { spot = [r, s]; break; }
+      if (!spot) return toast('Nessuno spazio libero nel quadro');
+      const nd = structuredClone(d);
+      Object.assign(nd, { uid: uid(), row: spot[0], pos: spot[1], tag: '', main: false });
+      p.devices.push(nd);
+      saveProject();
+      openDevice(nd.uid);
+    } else if (a === 'del') {
+      deleteDevice(d.uid);
+    }
+  });
+  renderDevRes(d);
+}
+
+async function deleteDevice(id) {
+  const p = state.project, d = p.devices.find(x => x.uid === id);
+  if (!d) return;
+  const tag = tagMap(p).get(id);
+  if (!await ask(`Eliminare ${tag || 'il dispositivo'} ${d.label ? '«' + d.label + '» ' : ''}dal quadro?`, 'Elimina')) return;
+  p.devices.forEach(x => { if (x.parent === d.uid) x.parent = d.parent; });
+  p.devices = p.devices.filter(x => x.uid !== d.uid);
+  saveProject();
+  closeSheet();
+  renderPanel();
+  toast('Dispositivo eliminato');
+}
+
+// finestra di conferma interna (le finestre del browser possono essere bloccate)
+function ask(msg, okLabel = 'OK', cancelLabel = 'Annulla') {
+  return new Promise(res => {
+    const w = document.createElement('div');
+    w.className = 'modal';
+    w.innerHTML = `<div class="modal-box"><p>${esc(msg)}</p><div class="actions">
+      <button class="btn" data-r="0">${esc(cancelLabel)}</button>
+      <button class="btn ${okLabel === 'Elimina' ? 'danger-fill' : 'primary'}" data-r="1">${esc(okLabel)}</button></div></div>`;
+    const done = v => { w.remove(); document.removeEventListener('keydown', key, true); res(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } if (e.key === 'Enter') { e.preventDefault(); done(true); } };
+    w.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) done(b.dataset.r === '1'); else if (e.target === w) done(false); });
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(w);
+    w.querySelector('[data-r="1"]').focus();
+  });
+}
+
+function renderDevRes(d) {
+  const box = $('#devRes'); if (!box) return;
+  const r = computeAll(state.project).get(d.uid); if (!r) return;
+  box.innerHTML = `
+    <div class="res-grid">
+      <div><span>Potenza</span><b>${r.P > 0 ? fmt(r.P, 2) + ' kW' : '—'}</b></div>
+      <div><span>Ib</span><b>${r.Ib > 0 ? fmt(r.Ib) + ' A' : '—'}</b></div>
+      <div><span>In</span><b>${num(d.item.In) ? d.item.In + ' A' : '—'}</b></div>
+      <div><span>Iz cavo</span><b>${r.Iz != null ? fmt(r.Iz) + ' A' : '—'}</b></div>
+      <div><span>ΔV linea</span><b>${r.dv > 0 ? fmt(r.dv, 2) + ' %' : '—'}</b></div>
+      <div><span>ΔV totale</span><b>${r.dvTot > 0 ? fmt(r.dvTot, 2) + ' %' : '—'}</b></div>
+    </div>
+    ${r.cab.ins ? `<p class="small muted">Formazione: <b>${esc(formation(d.circuit, r.cab, r.tri))}</b> ${esc(d.circuit.cableType)}</p>` : ''}
+    <ul class="checks">${r.checks.map(c => `<li class="${c.lvl}">${c.lvl === 'ok' ? '✔' : c.lvl === 'warn' ? '⚠' : '✖'} ${esc(c.msg)}</li>`).join('') || '<li class="muted">Inserisci potenza e cavo per le verifiche.</li>'}</ul>
+    <p class="note">Portate indicative IEC 60364-5-52 (rame, 30 °C). Verificare sempre con tabelle CEI-UNEL e dati del costruttore.</p>`;
+}
+
+// ---- dati quadro
+function openProjectSheet() {
+  const p = state.project;
+  openSheet('project', 'Dati quadro', `
+    <div class="form">
+      <label class="wide">Nome quadro<input data-p="name" value="${esc(p.name)}"></label>
+      <label>Cliente<input data-p="client" value="${esc(p.client)}"></label>
+      <label>Luogo<input data-p="place" value="${esc(p.place)}"></label>
+      <label class="wide">Alimentazione<select data-p="supply">${options([['230', 'Monofase 230 V'], ['400', 'Trifase 400 V']], p.supply)}</select></label>
+      <label>Icc presunta (kA)<input data-p="icc" inputmode="decimal" value="${esc(p.icc)}"></label>
+      <label>ΔV a monte (%)<input data-p="dvUp" inputmode="decimal" value="${esc(p.dvUp)}"></label>
+      <label>ΔV massima (%)<input data-p="dvMax" inputmode="decimal" value="${esc(p.dvMax)}"></label>
+      <span></span>
+      <h4 class="wide">Dimensioni</h4>
+      <label>Numero di file<input data-p="rows" type="number" min="1" max="20" value="${p.rows}"></label>
+      <label>Moduli per fila<input data-p="mods" type="number" min="4" max="72" list="modList" value="${p.mods}">
+        <datalist id="modList"><option>8</option><option>12</option><option>18</option><option>24</option><option>36</option><option>54</option></datalist></label>
+      <label class="wide">Note<textarea data-p="notes" rows="3">${esc(p.notes)}</textarea></label>
+    </div>`);
+  $$('[data-p]', $('#sheetBody')).forEach(inp => {
+    const f = inp.dataset.p;
+    inp.addEventListener(['rows', 'mods', 'supply'].includes(f) ? 'change' : 'input', () => {
+      if (f === 'rows') {
+        const v = Math.max(1, Math.min(20, parseInt(inp.value) || 1));
+        if (p.devices.some(d => d.row >= v)) { toast('Svuota prima le file da eliminare'); inp.value = p.rows; return; }
+        p.rows = v;
+      } else if (f === 'mods') {
+        const v = Math.max(4, Math.min(72, parseInt(inp.value) || 12));
+        if (p.devices.some(d => d.pos + modsOf(d.item) > v)) { toast('Ci sono dispositivi oltre la nuova larghezza'); inp.value = p.mods; return; }
+        p.mods = v;
+      } else p[f] = inp.value;
+      saveProject();
+      renderHeader();
+      renderPanel();
+    });
+  });
+}
+
+// ---------------------------------------------------------------- vista UNIFILARE
+function renderUnifilare(main) {
+  const p = state.project, res = computeAll(p), tg = tagMap(p);
+  const issues = sortDevices(p.devices).flatMap(d => (res.get(d.uid)?.checks || [])
+    .filter(c => c.lvl !== 'ok').map(c => ({ d, c })));
+  main.innerHTML = `
+    <div class="toolbar">
+      <button class="btn" id="bSvg">Scarica SVG</button>
+      <button class="btn" id="bPrintU">Stampa / PDF</button>
+      <span class="muted small">Tocca un interruttore nello schema per modificarne carico e cavo.</span>
+    </div>
+    <div class="uni-scroll">${unifilareSVG(p, res, tg)}</div>
+    <div class="pad"><h3>Verifiche</h3>${issues.length
+      ? `<ul class="checks">${issues.map(({ d, c }) => `<li class="${c.lvl}"><b>${esc(tg.get(d.uid))}</b> ${esc(d.label)} — ${esc(c.msg)}</li>`).join('')}</ul>`
+      : '<p class="muted">Nessun problema rilevato sui dati inseriti.</p>'}
+      <p class="note">Schema generato dai collegamenti «Alimentato da». Le portate e le cadute di tensione sono calcoli semplificati e indicativi: il progetto va verificato da un tecnico abilitato secondo CEI 64-8.</p></div>`;
+  $('#bSvg').onclick = () => download(`${p.name || 'quadro'} - unifilare.svg`, unifilareSVG(p, res, tg), 'image/svg+xml');
+  $('#bPrintU').onclick = doPrint;
+  $$('.node', main).forEach(g => g.addEventListener('click', () => openDevice(g.dataset.uid)));
+}
+
+// ---------------------------------------------------------------- vista DISTINTA
+function bomData(p, tg) {
+  const res = computeAll(p);
+  const g = new Map();
+  for (const d of sortDevices(p.devices)) {
+    const it = d.item;
+    const k = [it.brand, it.series, it.code, it.type, it.poles, it.modules, it.In, it.curve, it.Idn, it.rcdClass, it.Icn, it.desc].join('|');
+    if (!g.has(k)) g.set(k, { it, qty: 0, tags: [] });
+    const e = g.get(k);
+    e.qty++;
+    if (tg.get(d.uid)) e.tags.push(tg.get(d.uid));
+  }
+  const items = [...g.values()].sort((a, b) => TYPE_ORDER.indexOf(a.it.type) - TYPE_ORDER.indexOf(b.it.type) || num(a.it.In) - num(b.it.In));
+  const cg = new Map();
+  for (const d of p.devices) {
+    const cab = cableInfo(d.circuit?.cableType);
+    if (!cab.ins) continue;
+    const f = formation(d.circuit, cab, res.get(d.uid)?.tri);
+    const k = cab.id + '|' + f;
+    if (!cg.has(k)) cg.set(k, { cab, f, L: 0, n: 0 });
+    const e = cg.get(k);
+    e.L += num(d.circuit.L);
+    e.n++;
+  }
+  return { items, cables: [...cg.values()] };
+}
+
+function bomTables(p, tg) {
+  const { items, cables } = bomData(p, tg);
+  const hasPrice = items.some(e => num(e.it.price));
+  const tot = items.reduce((s, e) => s + e.qty * num(e.it.price), 0);
+  return `
+  <div class="table-scroll"><table class="tbl">
+    <thead><tr><th>Q.tà</th><th>Tipo</th><th>Marca</th><th>Serie</th><th>Codice</th><th>Caratteristiche</th><th>Sigle</th>${hasPrice ? '<th class="r">Prezzo</th><th class="r">Totale</th>' : ''}</tr></thead>
+    <tbody>${items.map(e => `<tr><td><b>${e.qty}</b></td><td>${esc(typeOf(e.it).name)}</td><td>${esc(e.it.brand)}</td><td>${esc(e.it.series)}</td><td>${esc(e.it.code)}</td><td>${esc(specText(e.it))}</td><td>${esc(e.tags.join(', '))}</td>${hasPrice ? `<td class="r">${num(e.it.price) ? fmt(num(e.it.price), 2) + ' €' : ''}</td><td class="r">${num(e.it.price) ? fmt(e.qty * num(e.it.price), 2) + ' €' : ''}</td>` : ''}</tr>`).join('')
+      || '<tr><td colspan="7" class="muted">Nessun dispositivo</td></tr>'}</tbody>
+    ${hasPrice ? `<tfoot><tr><td colspan="8" class="r"><b>Totale dispositivi</b></td><td class="r"><b>${fmt(tot, 2)} €</b></td></tr></tfoot>` : ''}
+  </table></div>
+  <h3>Cavi</h3>
+  <div class="table-scroll"><table class="tbl">
+    <thead><tr><th>Tipo cavo</th><th>Formazione</th><th class="r">Linee</th><th class="r">Metri</th><th class="r">Metri +10%</th></tr></thead>
+    <tbody>${cables.map(c => `<tr><td>${esc(c.cab.id)}</td><td>${esc(c.f)}</td><td class="r">${c.n}</td><td class="r">${fmt(c.L, 0)}</td><td class="r">${fmt(Math.ceil(c.L * 1.1), 0)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Nessun cavo definito (impostali nei dati di ogni circuito)</td></tr>'}</tbody>
+  </table></div>`;
+}
+
+function renderDistinta(main) {
+  const p = state.project, tg = tagMap(p);
+  main.innerHTML = `
+    <div class="toolbar"><button class="btn" id="bCsv">Esporta CSV (Excel)</button><button class="btn" id="bPrintD">Stampa / PDF</button></div>
+    <div class="pad"><h3>Dispositivi</h3>${bomTables(p, tg)}</div>`;
+  $('#bPrintD').onclick = doPrint;
+  $('#bCsv').onclick = () => {
+    const { items, cables } = bomData(p, tg);
+    const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [['Q.tà', 'Tipo', 'Marca', 'Serie', 'Codice', 'Caratteristiche', 'Sigle', 'Prezzo'].map(q).join(';')];
+    items.forEach(e => rows.push([e.qty, typeOf(e.it).name, e.it.brand, e.it.series, e.it.code, specText(e.it), e.tags.join(', '), e.it.price].map(q).join(';')));
+    rows.push('', ['Cavo', 'Formazione', 'Linee', 'Metri'].map(q).join(';'));
+    cables.forEach(c => rows.push([c.cab.id, c.f, c.n, fmt(c.L, 0)].map(q).join(';')));
+    download(`${p.name || 'quadro'} - distinta.csv`, '﻿' + rows.join('\r\n'), 'text/csv');
+  };
+}
+
+// ---------------------------------------------------------------- vista LIBRERIA
+function renderLibreria(main) {
+  main.innerHTML = `
+    <div class="toolbar">
+      <input id="lq" type="search" placeholder="Cerca…" value="${esc(state.lf.q)}">
+      <select id="lt"><option value="">Tutti i tipi</option>${options(TYPE_ORDER.map(k => [k, TYPES[k].name]), state.lf.type)}</select>
+      <select id="lb"><option value="">Tutte le marche</option>${options(brands(), state.lf.brand)}</select>
+      <button class="btn primary" id="lNew">+ Nuovo articolo</button>
+      <button class="btn" id="lExp">Esporta libreria</button>
+      <button class="btn" id="lXls">📊 Importa Excel / CSV</button>
+      <button class="btn" id="lTpl">Scarica modello</button>
+      <button class="btn" id="lImp">Importa backup</button>
+      <button class="btn" id="lSeed">Ripristina esempi</button>
+    </div>
+    <p class="muted small pad0">Con «Importa Excel / CSV» carichi in un colpo listini e tabelle (.xlsx, .xls, .csv): le colonne vengono riconosciute da sole e i dati mancanti ricavati da descrizione e codice. Per ogni articolo puoi caricare la foto del fronte (anche scattandola col telefono), incollarla con Ctrl+V oppure indicare l'indirizzo di un'immagine del catalogo. I bordi bianchi vengono ritagliati automaticamente.</p>
+    <div class="lib-grid" id="libGrid"></div>`;
+  $('#lq').oninput = e => { state.lf.q = e.target.value; renderLibGrid(); };
+  $('#lt').onchange = e => { state.lf.type = e.target.value; renderLibGrid(); };
+  $('#lb').onchange = e => { state.lf.brand = e.target.value; renderLibGrid(); };
+  $('#lNew').onclick = () => openItemEditor(null);
+  $('#lExp').onclick = () => download(`libreria-quadri-${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify({ kind: 'quadri-library', version: 1, items: state.library }));
+  $('#lImp').onclick = importFile;
+  $('#lXls').onclick = importTable;
+  $('#lTpl').onclick = downloadTemplate;
+  $('#lSeed').onclick = async () => {
+    await db.putMany('library', SEED);
+    state.library = await db.all('library');
+    toast('Articoli di esempio ripristinati');
+    renderLibreria(main);
+  };
+  renderLibGrid();
+}
+
+function renderLibGrid() {
+  const g = $('#libGrid'); if (!g) return;
+  const items = filteredLib();
+  g.innerHTML = items.map(it => `
+    <div class="lib-card" data-id="${esc(it.id)}">
+      <div class="lib-thumb"><div style="width:${modsOf(it) * 17}px;height:85px">${face(it)}</div></div>
+      <div class="lib-txt"><b>${esc(lineTitle(it))}</b> <span class="tag">${esc(typeOf(it).short)}</span>
+        <br>${esc(it.brand)} <span class="muted">${esc(it.series)}</span>
+        <br><small class="muted">${esc(it.code || 'senza codice')} · ${modsOf(it)} mod ${idnText(it) ? '· ' + esc(idnText(it)) : ''}</small>
+        ${it.img ? '' : '<br><small class="warn-t">senza foto</small>'}</div>
+    </div>`).join('') || '<p class="muted pad">Nessun articolo.</p>';
+  $$('.lib-card', g).forEach(c => c.onclick = () => openItemEditor(state.library.find(i => i.id === c.dataset.id)));
+}
+
+function openItemEditor(item) {
+  const isNew = !item;
+  const it = structuredClone(item || { id: uid(), brand: state.lf.brand || '', series: '', code: '', type: state.lf.type || 'MT',
+    poles: '1P+N', modules: 1, In: 16, curve: 'C', Idn: '', rcdClass: '', Icn: 6, desc: '', price: '', img: '', url: '' });
+  state.editItem = it;
+  openSheet('item', isNew ? 'Nuovo articolo' : 'Modifica articolo', `
+    <div class="img-edit">
+      <div class="img-prev" id="imgPrev"></div>
+      <div class="img-btns">
+        <button class="btn" id="iFile">📷 Carica / scatta foto</button>
+        <div class="url-row"><input id="iUrlIn" type="url" placeholder="Indirizzo immagine (https://…)"><button class="btn" id="iUrl">Usa</button></div>
+        <a class="btn" id="iSearch" target="_blank" rel="noopener" href="#">🔎 Cerca immagini ↗</a>
+        <button class="btn" id="iClear">Rimuovi foto</button>
+        <small class="muted">Oppure copia un'immagine e premi Ctrl+V qui.</small>
+      </div>
+    </div>
+    <div class="form">
+      <label>Marca<input data-i="brand" list="brandList" value="${esc(it.brand)}"><datalist id="brandList">${brands().map(b => `<option>${esc(b)}</option>`).join('')}</datalist></label>
+      <label>Serie<input data-i="series" value="${esc(it.series)}"></label>
+      <label>Codice articolo<input data-i="code" value="${esc(it.code)}"></label>
+      <label>Tipo<select data-i="type">${options(TYPE_ORDER.map(k => [k, TYPES[k].name]), it.type)}</select></label>
+      <label>Poli<select data-i="poles">${options(POLES, it.poles)}</select></label>
+      <label>Moduli DIN<input data-i="modules" type="number" min="1" max="24" value="${esc(it.modules)}"></label>
+      <label>Corrente nominale In (A)<input data-i="In" inputmode="decimal" value="${esc(it.In)}"></label>
+      <label>Curva<select data-i="curve">${options(CURVES.map(c => [c, c || '—']), it.curve)}</select></label>
+      <label>Idn (mA)<input data-i="Idn" inputmode="numeric" value="${esc(it.Idn)}" placeholder="30, 300…"></label>
+      <label>Classe differenziale<select data-i="rcdClass">${options(RCD_CLASSES.map(c => [c, c || '—']), it.rcdClass)}</select></label>
+      <label>Potere di interruzione (kA)<input data-i="Icn" inputmode="decimal" value="${esc(it.Icn)}"></label>
+      <label>Prezzo (€)<input data-i="price" inputmode="decimal" value="${esc(it.price)}"></label>
+      <label class="wide">Descrizione<input data-i="desc" value="${esc(it.desc)}"></label>
+      <label class="wide">Link scheda tecnica<input data-i="url" type="url" value="${esc(it.url)}" placeholder="https://…"></label>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="iSave">Salva</button>
+      ${isNew ? '' : '<button class="btn" id="iDup">Duplica</button><button class="btn danger" id="iDel">Elimina</button>'}
+      ${it.url ? `<a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">Scheda tecnica ↗</a>` : ''}
+    </div>`);
+  const body = $('#sheetBody');
+  const prev = () => { $('#imgPrev').innerHTML = `<div style="width:${modsOf(it) * 26}px;height:130px">${face(it)}</div>`; };
+  prev();
+  $$('[data-i]', body).forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', () => {
+    it[inp.dataset.i] = inp.value; prev();
+  }));
+  $('#iFile').onclick = async () => {
+    const f = await pickFile('image/*'); if (!f) return;
+    try { it.img = await processImage(f); prev(); } catch { toast('Immagine non leggibile'); }
+  };
+  $('#iUrl').onclick = async () => {
+    const url = $('#iUrlIn').value.trim();
+    if (!url) return toast("Incolla l'indirizzo dell'immagine (sul sito: tasto destro o pressione lunga → «Copia indirizzo immagine»)");
+    try {
+      const r = await fetch(url, { mode: 'cors' });
+      if (!r.ok) throw new Error();
+      it.img = await processImage(await r.blob());
+      toast('Immagine scaricata e salvata');
+    } catch {
+      it.img = url.trim();
+      toast('Salvata come collegamento: serve la connessione per vederla');
+    }
+    prev();
+  };
+  const setSearch = () => {
+    const q = [it.brand, it.series, it.code || ratingText(it), typeOf(it).name].filter(Boolean).join(' ');
+    $('#iSearch').href = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q);
+  };
+  setSearch();
+  body.addEventListener('input', setSearch);
+  body.addEventListener('change', setSearch);
+  $('#iClear').onclick = () => { it.img = ''; prev(); };
+  $('#iSave').onclick = async () => {
+    it.brand = it.brand.trim() || 'Generico';
+    it.modules = modsOf(it);
+    await db.put('library', it);
+    const i = state.library.findIndex(x => x.id === it.id);
+    if (i >= 0) state.library[i] = it; else state.library.push(it);
+    let n = 0;
+    state.project.devices.forEach(d => { if (d.libId === it.id && modsOf(d.item) === it.modules) { d.item = structuredClone(it); n++; } });
+    if (n) saveProject();
+    toast('Articolo salvato' + (n ? ` (aggiornati ${n} nel quadro)` : ''));
+    closeSheet();
+    render();
+  };
+  if (!isNew) {
+    $('#iDup').onclick = () => { const c = structuredClone(it); c.id = uid(); c.code = ''; openItemEditorFrom(c); };
+    $('#iDel').onclick = async () => {
+      if (!await ask('Eliminare questo articolo dalla libreria? I quadri già fatti non vengono modificati.', 'Elimina')) return;
+      await db.del('library', it.id);
+      state.library = state.library.filter(x => x.id !== it.id);
+      closeSheet();
+      render();
+    };
+  }
+}
+function openItemEditorFrom(copy) {
+  // apre l'editor come "nuovo" ma precompilato
+  openItemEditor(null);
+  Object.assign(state.editItem, copy);
+  const it = state.editItem;
+  $$('[data-i]', $('#sheetBody')).forEach(inp => { inp.value = it[inp.dataset.i] ?? ''; });
+  $('#imgPrev').innerHTML = `<div style="width:${modsOf(it) * 26}px;height:130px">${face(it)}</div>`;
+}
+
+// incolla immagine nell'editor articolo
+document.addEventListener('paste', async e => {
+  if (state.sheet !== 'item' || !state.editItem) return;
+  const file = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'))?.getAsFile();
+  if (!file) return;
+  e.preventDefault();
+  try {
+    state.editItem.img = await processImage(file);
+    const it = state.editItem;
+    $('#imgPrev').innerHTML = `<div style="width:${modsOf(it) * 26}px;height:130px">${face(it)}</div>`;
+    toast('Immagine incollata');
+  } catch { toast('Immagine non leggibile'); }
+});
+
+// ---------------------------------------------------------------- IMPORTAZIONE EXCEL / CSV
+// Legge .xlsx/.xls/.csv, riconosce le colonne, ricava i dati mancanti da descrizione e codice
+const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let xlsxP = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!xlsxP) xlsxP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = XLSX_URL;
+    s.onload = () => window.XLSX ? res(window.XLSX) : rej(new Error('lettore Excel non disponibile'));
+    s.onerror = () => { xlsxP = null; s.remove(); rej(new Error('impossibile caricare il lettore Excel: serve la connessione (oppure salva il file come CSV)')); };
+    document.head.appendChild(s);
+  });
+  return xlsxP;
+}
+
+const normTxt = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/[^a-z0-9+%€]+/g, ' ').trim();
+
+// ordine importante: il primo campo che corrisponde vince
+const IMP_FIELDS = [
+  ['desc', 'Descrizione', /descr|description|denominazion|designazion|^testo|nome prodotto|^prodotto$/],
+  ['price', 'Prezzo', /prezz|price|listino|costo|^eur|€/],
+  ['type', 'Tipo dispositivo', /^tipo$|^type$|tipolog|categori|^dispositivo$|tipo (dispositivo|apparecchio|articolo|prodotto)/],
+  ['code', 'Codice', /codic|^cod\b|articol|article|^art\b|part n|mlfb|^sku|^ref|riferiment|order n|n ordine|catalog/],
+  ['url', 'Link scheda', /link|url|scheda|datasheet|sito/],
+  ['brand', 'Marca', /marca|brand|produttor|manufactur|costruttor|marchio|fornitor/],
+  ['series', 'Serie', /serie|series|linea|gamma|famiglia/],
+  ['rcdClass', 'Classe differenziale', /classe|class|tipo diff|rcd type/],
+  ['Idn', 'Idn (mA)', /idn|i ?delta|i ?dn|sensibil|differenz|residu|\bma$/],
+  ['Icn', 'Potere interr. (kA)', /icn|icu|potere|\bka\b|breaking|interruzion/],
+  ['In', 'Corrente In (A)', /^in\b|^ie\b|corrent|current|ampere|^amp|portata|^a$/],
+  ['curve', 'Curva', /curva|caratteristic|curve|char/],
+  ['poles', 'Poli', /poli|polo|pole|polarit/],
+  ['modules', 'Moduli DIN', /modul|^mod\b|\bmw\b|\bte\b|larghezz|width|passi/],
+];
+const IMP_LABEL = Object.fromEntries(IMP_FIELDS.map(([k, l]) => [k, l]));
+
+function autoMap(header) {
+  const map = {}, used = new Set();
+  header.forEach((h, ci) => {
+    const n = normTxt(h);
+    if (!n) return;
+    const f = IMP_FIELDS.find(([k, , re]) => !(k in map) && re.test(n));
+    if (f && !used.has(ci)) { map[f[0]] = ci; used.add(ci); }
+  });
+  return map;
+}
+
+function findHeader(rows) {
+  let best = -1, score = 1;
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const s = Object.keys(autoMap(rows[i] || [])).length;
+    if (s > score) { score = s; best = i; }
+  }
+  return best;
+}
+
+// --- lettura dei file
+function parseCSV(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/).find(l => l.trim()) || '';
+  const cnt = c => first.split(c).length - 1;
+  const delim = [';', '\t', ','].sort((a, b) => cnt(b) - cnt(a))[0];
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === delim) { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(v => String(v).trim()));
+}
+
+async function readTableFile(f) {
+  const buf = await f.arrayBuffer();
+  if (/\.(csv|txt)$/i.test(f.name)) {
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch { text = new TextDecoder('windows-1252').decode(buf); }
+    return [{ name: 'CSV', rows: parseCSV(text) }];
+  }
+  const X = await loadXLSX();
+  const wb = X.read(buf, { type: 'array' });
+  return wb.SheetNames.map(n => ({
+    name: n,
+    rows: X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '', blankrows: false })
+      .filter(r => r.some(v => String(v).trim())),
+  }));
+}
+
+// --- interpretazione dei valori
+const numIn = v => { const m = String(v ?? '').replace(',', '.').match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+const clean = v => String(v ?? '').replace(/\s+/g, ' ').trim();
+
+function parsePrice(v) {
+  let s = String(v ?? '').replace(/[^\d,.-]/g, '');
+  if (!s) return '';
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = parseFloat(s);
+  return isFinite(n) ? Math.round(n * 100) / 100 : '';
+}
+
+const TYPE_KW = [
+  ['MTD', /magnetotermic\w* differenzial|differenzial\w* magnetotermic|\brcbo\b|fi ?ls|\bmtd\b|blocco differenzial|with overload protection/],
+  ['SPD', /scaricator|\bspd\b|surge|sovratension|lightning|parafulmin/],
+  ['VUOTO', /copriforo|modulo vuoto|\bblank/],
+  ['ID', /differenzial|\brccb\b|residual current|\bfi\b|\bid\b|salvavita/],
+  ['MT', /magnetotermic|\bmcb\b|miniature circuit|circuit breaker|interruttore automatico|\bls\b/],
+  ['SEZ', /sezionator|disconnector|isolator|interruttore di manovra|off switch|\bsez\b|sezionament/],
+  ['CONT', /contattor|contactor|teleruttor/],
+  ['REL', /\brele\b|relay|temporizzator|timer|orologio|interruttore orario|crepuscolar|passo passo|impulse switch/],
+  ['PRESA', /\bpres[ae]\b|socket/],
+  ['TRASF', /trasformator|alimentator|power supply|transformer|suoneri/],
+  ['SPIA', /\bspi[ae]\b|indicator|voltmetr|amperometr|strument|contatore di energia|energy meter|multimetr|misurator/],
+];
+
+function typeFromText(t) {
+  const s = String(t ?? '').trim();
+  if (!s) return '';
+  const up = s.toUpperCase();
+  if (TYPES[up]) return up;
+  const alias = { Q: 'MT', KM: 'CONT', K: 'REL', PR: 'PRESA', H: 'SPIA', T: 'TRASF', RCBO: 'MTD', RCCB: 'ID', MCB: 'MT' };
+  if (alias[up]) return alias[up];
+  const n = normTxt(s);
+  for (const k of Object.keys(TYPES)) if (normTxt(TYPES[k].name) === n) return k;
+  const hit = TYPE_KW.find(([, re]) => re.test(n));
+  return hit ? hit[0] : '';
+}
+
+function polesFromText(t, loose) {
+  const s = String(t ?? '').toUpperCase().replace(/[\s-]+/g, '');
+  if (!s) return '';
+  if (/3P\+N|3\+N|3PN|3POL\w*\+N|3F\+N/.test(s)) return '3P+N';
+  if (/1P\+N|1\+N|1PN|1POL\w*\+N|1F\+N|\bP\+N/.test(s)) return '1P+N';
+  const m = s.match(/([1-4])(P\b|P[^A-Z]|P$|POL|POLE|POLI|POLO)/);
+  if (m) return m[1] + 'P';
+  const w = normTxt(t);
+  if (/quadripolar|tetrapolar/.test(w)) return '4P';
+  if (/tripolar/.test(w)) return '3P';
+  if (/bipolar/.test(w)) return '2P';
+  if (/unipolar/.test(w)) return '1P';
+  if (loose) { const d = s.match(/^([1-4])$/); if (d) return d[1] + 'P'; }
+  return '';
+}
+
+function idnFromText(t, loose) {
+  const s = String(t ?? '');
+  let m = s.match(/(\d+(?:[.,]\d+)?)\s*mA\b/i);
+  if (m) return numIn(m[1]);
+  m = s.match(/I\s?(?:dn|Δn|delta n)\s*[:=]?\s*(0[.,]\d+)\s*A\b/i);
+  if (m) return Math.round(numIn(m[1]) * 1000);
+  if (loose) { const v = numIn(s); if (isFinite(v) && v > 0) return v < 1 ? Math.round(v * 1000) : v; }
+  return '';
+}
+
+function classFromText(t, loose) {
+  const s = String(t ?? '');
+  const m = s.match(/(?:tipo|type|typ|classe|class)\s*[:.]?\s*(AC|A|F|B)(?![A-Za-z0-9])/i);
+  if (m) return m[1].toUpperCase();
+  if (loose) { const u = s.trim().toUpperCase(); if (RCD_CLASSES.includes(u)) return u; }
+  return '';
+}
+
+function curveFromText(t, loose) {
+  const s = String(t ?? '');
+  let m = s.match(/(?:curva|char\.?|caratteristica|curve)\s*[:.]?\s*([BCDKZ])(?![A-Za-z])/i) || s.match(/(?<![A-Za-z])([BCDKZ])[\s-]?char/i);
+  if (m) return m[1].toUpperCase();
+  m = s.match(/(?<![A-Za-z0-9])([BCDKZ])\s?(\d{1,3})(?:\s?A)?(?![A-Za-z0-9])/) || s.match(/(?:^|[,;(]\s*)([BCDKZ])(?=\s*(?:[,;)]|$))/);
+  if (m) return m[1];
+  if (loose) { const u = s.trim().toUpperCase(); if (/^[BCDKZ]$/.test(u)) return u; }
+  return '';
+}
+
+function inFromText(t) {
+  const s = String(t ?? '');
+  let m = s.match(/(?<![A-Za-z0-9])[BCDKZ]\s?(\d{1,3})(?:\s?A)?(?![A-Za-z0-9])/);
+  if (m) return numIn(m[1]);
+  m = s.match(/\bI[ne]\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*A\b/);
+  if (m) return numIn(m[1]);
+  m = s.match(/(?<![\w.,])(\d+(?:[.,]\d+)?)\s?A(?![A-Za-z0-9])/);
+  return m ? numIn(m[1]) : '';
+}
+
+const icnFromText = t => { const m = String(t ?? '').match(/(\d+(?:[.,]\d+)?)\s?kA\b/i); return m ? numIn(m[1]) : ''; };
+const modsFromText = t => {
+  const m = String(t ?? '').match(/(\d+(?:[.,]\d+)?)\s?(?:moduli|modulo|mod\.?|MW|TE|DIN|passi)(?![A-Za-z])/i);
+  return m ? numIn(m[1]) : '';
+};
+const roundMods = v => { v = numIn(v); return isFinite(v) && v > 0 ? Math.max(1, Math.ceil(v - 0.01)) : ''; };
+
+// --- decodifica dei codici Siemens (SENTRON)
+const STD_I = [1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+const SIEMENS_RE = /^(5S[LYVUMDXJ]|5T[TLE]|3RT|7KT|7LF|4AC)/;
+
+function decodeSiemens(code) {
+  const c = String(code ?? '').toUpperCase().replace(/[\s]/g, '');
+  let m;
+  // magnetotermici 5SL / 5SY: 5SL6 5 16-7 = 6 kA, 1P+N, 16 A, curva C
+  if ((m = c.match(/^5S([LY])(\d)(\d)(\d{2})-?([5678])/))) {
+    const P = { 0: ['1P+N', 1], 1: ['1P', 1], 2: ['2P', 2], 3: ['3P', 3], 4: ['4P', 4], 5: ['1P+N', 2], 6: ['3P+N', 4] }[m[3]];
+    const I = parseInt(m[4], 10);
+    const kA = ({ L: { 3: 4.5, 4: 10, 6: 6 }, Y: { 4: 10, 6: 6, 7: 15, 8: 25 } })[m[1]][m[2]];
+    if (!P) return {};
+    return { type: 'MT', poles: P[0], modules: P[1], In: STD_I.includes(I) ? I : '', curve: { 5: 'A', 6: 'B', 7: 'C', 8: 'D' }[m[5]], Icn: kA || '', series: '5S' + m[1] + m[2] };
+  }
+  // magnetotermici differenziali compatti 5SV1 3 1 6-7KK16 (1 modulo)
+  if ((m = c.match(/^5SV1(\d)(\d)(\d)-?([67])KK(\d{2})/)))
+    return { type: 'MTD', poles: '1P+N', modules: 1, Idn: { 1: 10, 3: 30, 6: 300 }[m[1]] || '', curve: { 6: 'B', 7: 'C' }[m[4]], In: parseInt(m[5], 10), Icn: 6, series: '5SV1' };
+  // magnetotermici differenziali 5SU1 3 5 6-7KK16 (2 moduli)
+  if ((m = c.match(/^5SU1(\d)(\d)(\d)-?([67])KK(\d{2})/)))
+    return { type: 'MTD', poles: '1P+N', modules: 2, Idn: { 1: 10, 3: 30, 6: 300 }[m[1]] || '', curve: { 6: 'B', 7: 'C' }[m[4]], In: parseInt(m[5], 10),
+      Icn: m[3] === '6' ? 6 : m[3] === '1' ? 10 : '', rcdClass: c.startsWith('5SU1356') ? 'A' : '', series: '5SU1' };
+  // differenziali puri 5SV3/5SV4/5SM: 5SV3 3 1 2-6 = 30 mA, 2P, 25 A, tipo A
+  if ((m = c.match(/^5S([VM])([3-9])([1-7])([14])([1-8])-?(\d)/))) {
+    const I = { 1: 16, 2: 25, 4: 40, 6: 63, 7: 80, 8: 100 }[m[5]];
+    const cls = m[1] === 'V' && m[2] === '4' ? 'AC' : m[6] === '6' ? 'A' : m[6] === '4' ? 'F' : m[6] === '0' ? 'AC' : '';
+    return { type: 'ID', poles: m[4] === '4' ? '4P' : '2P', modules: m[4] === '4' ? 4 : 2, Idn: { 1: 10, 3: 30, 5: 100, 6: 300, 7: 500 }[m[3]] || '', In: I || '', rcdClass: cls, series: '5S' + m[1] + m[2] };
+  }
+  // scaricatori 5SD74xx
+  if ((m = c.match(/^5SD74(\d)(\d)/))) {
+    const P = { 2: ['1P+N', 2], 4: ['3P+N', 3] }[m[2]];
+    return { type: 'SPD', poles: P ? P[0] : '', modules: P ? P[1] : '', series: '5SD7', desc: m[1] === '2' ? 'Tipo 2' : '' };
+  }
+  // contattori 5TT5
+  if (/^5TT5/.test(c)) return { type: 'CONT', series: '5TT5' };
+  // sezionatori 5TL1 2 63-0
+  if ((m = c.match(/^5TL1([1-4])(\d{2})/))) {
+    const I = parseInt(m[2], 10), n = parseInt(m[1], 10);
+    return { type: 'SEZ', poles: n + 'P', modules: n, In: STD_I.includes(I) ? I : '', series: '5TL1' };
+  }
+  if (/^7LF|^7KT/.test(c)) return { series: c.slice(0, 3) };
+  return {};
+}
+
+const DEF_POLES = { MT: '1P+N', MTD: '1P+N', ID: '2P', SEZ: '2P', SPD: '1P+N', CONT: '2P', REL: '1P', PRESA: '2P', SPIA: '1P', TRASF: '1P', VUOTO: '1P' };
+function defaultMods(type, poles) {
+  const n = poleCount(poles);
+  if (type === 'MTD') return poles === '1P+N' ? 2 : 4;
+  if (['REL', 'SPIA', 'VUOTO'].includes(type)) return 1;
+  if (type === 'PRESA') return 3;
+  if (type === 'TRASF') return 2;
+  return poles === '1P+N' ? 2 : n;
+}
+
+// riga del file -> articolo della libreria
+function rowToItem(row, map, defBrand) {
+  const g = k => map[k] != null && map[k] >= 0 ? clean(row[map[k]]) : '';
+  const it = { brand: g('brand'), series: g('series'), code: g('code'), desc: g('desc'), url: g('url') };
+  const notes = [];
+  const allText = [it.desc, g('type'), g('poles'), g('curve'), g('In'), g('Idn'), g('rcdClass'), g('Icn'), g('modules')].join(' | ');
+  const sie = SIEMENS_RE.test(it.code.toUpperCase().replace(/\s/g, '')) ? decodeSiemens(it.code) : {};
+  if (!it.brand) it.brand = defBrand || (Object.keys(sie).length || SIEMENS_RE.test(it.code.toUpperCase()) ? 'Siemens' : '');
+
+  // tipo
+  it.type = typeFromText(g('type')) || sie.type || typeFromText(it.desc) || '';
+  const prot = ['MT', 'MTD'].includes(it.type), rcd = ['ID', 'MTD'].includes(it.type);
+
+  // poli
+  it.poles = polesFromText(g('poles'), true) || sie.poles || polesFromText(it.desc) || '';
+  if (!it.poles && it.type === 'CONT') {
+    const c = re => numIn((it.desc.match(re) || [])[1]) || 0;
+    const t = c(/(\d)\s*(?:NO|NA)(?![A-Za-z])/i) + c(/(\d)\s*NC(?![A-Za-z])/i);
+    if (t >= 1 && t <= 4) it.poles = t + 'P';
+  }
+  if (!it.poles && it.type) { it.poles = DEF_POLES[it.type]; notes.push('poli stimati'); }
+
+  // corrente, curva, differenziale, kA
+  const inCol = numIn(g('In'));
+  it.In = isFinite(inCol) && inCol > 0 ? inCol : (sie.In || inFromText(it.desc) || '');
+  it.curve = prot ? (curveFromText(g('curve'), true) || sie.curve || curveFromText(it.desc) || '') : '';
+  if (rcd) {
+    it.Idn = (g('Idn') && idnFromText(g('Idn'), true)) || sie.Idn || idnFromText(it.desc) || '';
+    it.rcdClass = classFromText(g('rcdClass'), true) || classFromText(it.desc) || sie.rcdClass || '';
+  } else { it.Idn = ''; it.rcdClass = ''; }
+  const icnCol = numIn(g('Icn'));
+  it.Icn = prot ? ((isFinite(icnCol) && icnCol > 0 ? (icnCol >= 1000 ? icnCol / 1000 : icnCol) : '') || sie.Icn || icnFromText(it.desc) || '') : '';
+
+  // moduli
+  it.modules = roundMods(g('modules')) || roundMods(modsFromText(it.desc)) || sie.modules || '';
+  if (!it.modules && it.type) { it.modules = defaultMods(it.type, it.poles); notes.push('moduli stimati'); }
+
+  if (!it.series && sie.series) it.series = sie.series;
+  if (!it.desc && sie.desc) it.desc = sie.desc;
+  it.price = parsePrice(g('price'));
+  it.img = '';
+  return { it, notes };
+}
+
+function downloadTemplate() {
+  const q = v => `"${String(v).replace(/"/g, '""')}"`;
+  const rows = [
+    ['Marca', 'Serie', 'Codice', 'Descrizione', 'Tipo', 'Poli', 'Moduli', 'In (A)', 'Curva', 'Idn (mA)', 'Classe diff.', 'Icn (kA)', 'Prezzo', 'Link scheda'],
+    ['Siemens', '5SL6', '5SL6516-7', 'Magnetotermico 6 kA 1P+N C16', 'MT', '1P+N', 2, 16, 'C', '', '', 6, '', ''],
+    ['Siemens', '5SV3', '5SV3312-6', 'Differenziale puro 2P 25 A 30 mA tipo A', 'ID', '2P', 2, 25, '', 30, 'A', '', '', ''],
+    ['Siemens', '5SU1', '5SU1356-7KK16', 'Magnetotermico differenziale 1P+N C16 30 mA tipo A 6 kA', 'MTD', '1P+N', 2, 16, 'C', 30, 'A', 6, '', ''],
+  ];
+  download('modello-libreria-quadri.csv', '﻿' + rows.map(r => r.map(q).join(';')).join('\r\n'), 'text/csv');
+}
+
+// --- finestra di importazione
+async function importTable() {
+  const f = await pickFile('.xlsx,.xls,.xlsm,.ods,.csv,.txt');
+  if (!f) return;
+  let sheets;
+  try { sheets = await readTableFile(f); } catch (e) { return toast('File non leggibile: ' + e.message); }
+  sheets = sheets.filter(s => s.rows.length);
+  if (!sheets.length) return toast('Il file non contiene righe');
+  const si = Math.max(0, sheets.findIndex(s => findHeader(s.rows) >= 0));
+  openImport({ name: f.name, sheets, si });
+}
+
+const keyOf = (brand, code) => normTxt(brand) + '|' + String(code ?? '').toUpperCase().replace(/[\s.\-/]/g, '');
+const IMP_SHOW = 400;
+
+function openImport(st) {
+  const prep = () => {
+    const rows = st.sheets[st.si].rows;
+    st.hdr = findHeader(rows);
+    const head = st.hdr >= 0 ? rows[st.hdr] : [];
+    const width = Math.max(...rows.slice(0, 50).map(r => r.length), head.length);
+    st.cols = Array.from({ length: width }, (_, i) => clean(head[i]) || 'Colonna ' + (i + 1));
+    st.map = st.hdr >= 0 ? autoMap(head) : {};
+    st.data = rows.slice(st.hdr + 1);
+    st.over = {}; st.sel = {};
+    st.brand = '';
+    st.mode = 'update';
+  };
+  const compute = () => {
+    const lib = new Map(state.library.filter(x => x.code).map(x => [keyOf(x.brand, x.code), x]));
+    st.items = st.data.map((r, i) => {
+      const { it, notes } = rowToItem(r, st.map, st.brand.trim());
+      if (st.over[i]) { it.type = st.over[i]; if (!it.poles) it.poles = DEF_POLES[it.type]; if (!it.modules) it.modules = defaultMods(it.type, it.poles); }
+      const empty = !it.code && !it.desc;
+      const ex = it.code ? lib.get(keyOf(it.brand || 'Generico', it.code)) : null;
+      const status = empty ? 'skip' : !it.type ? 'bad' : ex ? 'upd' : 'new';
+      const sel = st.sel[i] ?? (status === 'new' || status === 'upd');
+      return { i, it, notes, ex, status, sel: status === 'skip' || status === 'bad' ? false : sel };
+    }).filter(x => x.status !== 'skip');
+  };
+
+  const w = document.createElement('div');
+  w.className = 'modal';
+  const close = () => { w.remove(); document.removeEventListener('keydown', key, true); };
+  const key = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+
+  const draw = () => {
+    compute();
+    const s = st.sheets[st.si];
+    const nMap = Object.keys(st.map).length;
+    const n = { new: 0, upd: 0, bad: 0 };
+    st.items.forEach(x => n[x.status]++);
+    const nSel = st.items.filter(x => x.sel && (x.status === 'new' || st.mode === 'update')).length;
+    const colOpts = v => `<option value="-1">— non presente —</option>` + st.cols.map((c, i) => `<option value="${i}" ${v === i ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    const typeOpts = v => `<option value="">?</option>` + TYPE_ORDER.map(k => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(TYPES[k].short === '—' ? 'Vuoto' : TYPES[k].short)}</option>`).join('');
+    const stTxt = x => x.status === 'new' ? '<span class="st-new">nuovo</span>'
+      : x.status === 'upd' ? `<span class="st-upd">${st.mode === 'update' ? 'aggiorna' : 'già presente'}</span>`
+      : '<span class="st-bad">tipo non riconosciuto</span>';
+    const shown = st.items.slice(0, IMP_SHOW);
+    w.innerHTML = `<div class="modal-box xl">
+      <p><b>Importa articoli</b> – ${esc(st.name)}</p>
+      <p class="small muted">${st.sheets.length > 1 ? `Foglio <select id="impSheet" style="width:auto">${st.sheets.map((x, i) => `<option value="${i}" ${i === st.si ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select> · ` : ''}
+        ${st.items.length} righe lette · ${nMap} colonne riconosciute${st.hdr < 0 ? ' · <span class="warn-t">intestazioni non trovate: assegna le colonne qui sotto</span>' : ''}</p>
+      <details ${nMap < 3 ? 'open' : ''}><summary>Colonne del file (${nMap} assegnate)</summary>
+        <div class="imp-map">${IMP_FIELDS.map(([k, l]) => `<label>${esc(l)}<select data-map="${k}">${colOpts(st.map[k] ?? -1)}</select></label>`).join('')}</div>
+      </details>
+      <div class="imp-opts">
+        <label>Marca per le righe senza marca<input id="impBrand" value="${esc(st.brand)}" placeholder="automatica (es. Siemens dal codice)"></label>
+        <label>Se il codice esiste già<select id="impMode"><option value="update" ${st.mode === 'update' ? 'selected' : ''}>aggiorna i dati</option><option value="skip" ${st.mode === 'skip' ? 'selected' : ''}>salta</option></select></label>
+        <span class="small"><span class="st-new">${n.new} nuovi</span> · <span class="st-upd">${n.upd} già presenti</span> · <span class="st-bad">${n.bad} da controllare</span></span>
+      </div>
+      <div class="imp-table"><table class="tbl">
+        <thead><tr><th><input type="checkbox" id="impAll" ${st.items.length && st.items.every(x => x.sel || x.status === 'bad') ? 'checked' : ''}></th><th>Codice</th><th>Marca</th><th>Tipo</th><th>Poli</th><th>Mod</th><th>In</th><th>Curva</th><th>Idn</th><th>kA</th><th>Descrizione</th><th>Esito</th></tr></thead>
+        <tbody>${shown.map(x => { const it = x.it; return `<tr>
+          <td><input type="checkbox" data-sel="${x.i}" ${x.sel ? 'checked' : ''} ${x.status === 'bad' ? 'disabled' : ''}></td>
+          <td>${esc(it.code)}</td><td>${esc(it.brand || 'Generico')}</td>
+          <td><select data-type="${x.i}">${typeOpts(it.type)}</select></td>
+          <td>${esc(it.poles)}</td><td>${esc(it.modules)}</td><td>${esc(it.In)}</td><td>${esc(it.curve)}</td>
+          <td>${esc(idnText(it))}</td><td>${esc(it.Icn)}</td>
+          <td title="${esc(it.desc)}">${esc(cut(it.desc, 46))}</td>
+          <td>${stTxt(x)}${x.notes.length ? `<br><small class="muted">${esc(x.notes.join(', '))}</small>` : ''}</td></tr>`; }).join('')
+          || '<tr><td colspan="12" class="muted">Nessuna riga con codice o descrizione.</td></tr>'}</tbody>
+      </table></div>
+      ${st.items.length > IMP_SHOW ? `<p class="small muted">Mostrate le prime ${IMP_SHOW} righe su ${st.items.length}: vengono importate tutte quelle valide.</p>` : ''}
+      <div class="imp-foot"><span class="small muted">Le righe «da controllare» si importano dopo aver scelto il tipo.</span>
+        <span class="grp"><button class="btn" data-r="close">Annulla</button><button class="btn primary" data-r="ok">Importa ${nSel} articoli</button></span></div>
+    </div>`;
+  };
+
+  w.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'impSheet') { st.si = +t.value; prep(); }
+    else if (t.dataset.map) {
+      const k = t.dataset.map, v = +t.value;
+      for (const f of Object.keys(st.map)) if (st.map[f] === v) delete st.map[f];
+      if (v >= 0) st.map[k] = v; else delete st.map[k];
+    }
+    else if (t.id === 'impBrand') st.brand = t.value;
+    else if (t.id === 'impMode') st.mode = t.value;
+    else if (t.dataset.type) { const i = +t.dataset.type; if (t.value) { st.over[i] = t.value; st.sel[i] = true; } else delete st.over[i]; }
+    else if (t.dataset.sel) st.sel[+t.dataset.sel] = t.checked;
+    else if (t.id === 'impAll') st.items.forEach(x => { if (x.status !== 'bad') st.sel[x.i] = t.checked; });
+    else return;
+    const sc = w.querySelector('.imp-table')?.scrollTop || 0;
+    const det = w.querySelector('details')?.open;
+    draw();
+    const tb = w.querySelector('.imp-table'); if (tb) tb.scrollTop = sc;
+    const d2 = w.querySelector('details'); if (d2 && det != null) d2.open = det;
+  });
+  w.addEventListener('click', async e => {
+    const r = e.target.closest('[data-r]')?.dataset.r;
+    if (r === 'close' || e.target === w) return close();
+    if (r !== 'ok') return;
+    const todo = st.items.filter(x => x.sel && x.status !== 'bad' && (x.status === 'new' || st.mode === 'update'));
+    if (!todo.length) return toast('Nessun articolo selezionato');
+    const out = [];
+    let nNew = 0, nUpd = 0, nDev = 0;
+    for (const x of todo) {
+      const it = { ...x.it, brand: x.it.brand || 'Generico', modules: modsOf(x.it) };
+      if (x.ex) {
+        const keep = x.ex;
+        Object.assign(it, { id: keep.id, img: keep.img || '', url: it.url || keep.url || '', price: it.price !== '' ? it.price : (keep.price ?? '') });
+        nUpd++;
+      } else { it.id = uid(); nNew++; }
+      out.push(it);
+    }
+    try { await db.putMany('library', out); }
+    catch (err) { return toast('Errore salvataggio: ' + err.message); }
+    state.library = await db.all('library');
+    const byId = new Map(out.map(x => [x.id, x]));
+    for (const p of state.projects) {
+      let ch = false;
+      p.devices.forEach(d => { const it = byId.get(d.libId); if (it && modsOf(d.item) === it.modules) { d.item = structuredClone(it); ch = true; nDev++; } });
+      if (ch) { if (p === state.project) saveProject(); else db.put('projects', p); }
+    }
+    const brandsIn = [...new Set(out.map(x => x.brand))];
+    state.lf = { q: '', type: '', brand: brandsIn.length === 1 ? brandsIn[0] : '' };
+    close();
+    render();
+    toast(`Importati ${nNew} nuovi articoli${nUpd ? `, aggiornati ${nUpd}` : ''}${nDev ? ` (${nDev} dispositivi nei quadri)` : ''}`);
+  });
+  document.addEventListener('keydown', key, true);
+  prep();
+  draw();
+  document.body.appendChild(w);
+}
+
+// ---------------------------------------------------------------- vista PROGETTI
+function renderProgetti(main) {
+  const list = [...state.projects].sort((a, b) => b.updated - a.updated);
+  main.innerHTML = `
+    <div class="toolbar">
+      <button class="btn primary" id="pNew">+ Nuovo quadro</button>
+      <button class="btn" id="pImp">Importa file / ZIP</button>
+      <button class="btn" id="pZip">🗜 Backup ZIP completo</button>
+      <button class="btn" id="pCloud">☁ Cloud</button>
+    </div>
+    <p class="muted small pad0">I dati si salvano da soli su questo dispositivo a ogni modifica.${cloudOn() ? ' Il cloud è collegato: trovi gli stessi quadri anche sugli altri dispositivi collegati.' : ' Collega il cloud per ritrovarli anche su altri dispositivi.'} Con «Backup ZIP completo» ne tieni una copia, da reimportare con «Importa file / ZIP».</p>
+    <div class="proj-list">${list.map(p => `
+      <div class="proj ${p.id === state.project.id ? 'current' : ''}" data-id="${p.id}">
+        <div class="proj-txt"><b>${esc(p.name || 'Senza nome')}</b>${p.id === state.project.id ? ' <span class="tag blue">aperto</span>' : ''}
+          <br><small class="muted">${esc(p.client)}${p.client ? ' · ' : ''}${p.devices.length} dispositivi · ${p.rows}×${p.mods} moduli · modificato ${new Date(p.updated).toLocaleString('it-IT')}</small></div>
+        <div class="proj-act">
+          <button class="btn small" data-a="open">Apri</button><button class="btn small" data-a="dup">Duplica</button>
+          <button class="btn small" data-a="exp">Esporta ZIP</button><button class="btn small danger" data-a="del">Elimina</button>
+        </div>
+      </div>`).join('')}</div>`;
+  $('#pNew').onclick = async () => {
+    const p = newProject('Quadro ' + (state.projects.length + 1));
+    await db.put('projects', p);
+    state.projects.push(p);
+    openProject(p);
+    state.view = 'quadro';
+    render();
+    openProjectSheet();
+  };
+  $('#pImp').onclick = importFile;
+  $('#pZip').onclick = exportFullZip;
+  $('#pCloud').onclick = openCloudSheet;
+  $$('.proj', main).forEach(row => $$('[data-a]', row).forEach(b => b.onclick = async () => {
+    const p = state.projects.find(x => x.id === row.dataset.id);
+    const a = b.dataset.a;
+    if (a === 'open') { openProject(p); state.view = 'quadro'; render(); }
+    if (a === 'dup') {
+      const c = structuredClone(p);
+      Object.assign(c, { id: uid(), name: p.name + ' (copia)', created: Date.now(), updated: Date.now() });
+      await db.put('projects', c);
+      state.projects.push(c);
+      render();
+    }
+    if (a === 'exp') exportProjectZip(p);
+    if (a === 'del') {
+      if (!await ask(`Eliminare definitivamente il quadro «${p.name}»?`, 'Elimina')) return;
+      await db.del('projects', p.id);
+      state.projects = state.projects.filter(x => x.id !== p.id);
+      if (state.project.id === p.id) {
+        let next = state.projects[0];
+        if (!next) { next = newProject(); await db.put('projects', next); state.projects.push(next); }
+        openProject(next);
+      }
+      render();
+    }
+  }));
+}
+
+// ---------------------------------------------------------------- ZIP (esporta / importa)
+const JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+const safeName = s => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').trim().slice(0, 80) || 'quadro';
+const today = () => new Date().toISOString().slice(0, 10);
+
+// copia completa dei dati (dalla memoria: è sempre aggiornata, anche durante la chiusura della pagina)
+function backupData() {
+  return { kind: 'quadri-backup', version: 1, savedAt: Date.now(), device: DEVICE, items: state.library, projects: state.projects };
+}
+
+async function makeZip(files) {
+  const JSZip = await loadScript(JSZIP_URL, 'JSZip');
+  const zip = new JSZip();
+  for (const [name, text] of files) zip.file(name, text);
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+}
+
+async function exportProjectZip(p) {
+  if (p === state.project) await flushProject();
+  const json = JSON.stringify({ kind: 'quadri-project', version: 1, project: p }, null, 1);
+  if (EMBEDDED) return download(`${safeName(p.name)}.json`, json);
+  try { downloadBlob(`${safeName(p.name)}.zip`, await makeZip([[`${safeName(p.name)}.json`, json]])); }
+  catch (e) { toast('ZIP non creato: ' + e.message); }
+}
+
+async function exportFullZip() {
+  await flushProject();
+  const data = backupData();
+  if (EMBEDDED) return download(`backup-quadri-${today()}.json`, JSON.stringify(data));
+  const used = new Set();
+  const files = [['backup-completo.json', JSON.stringify(data)],
+    ['libreria.json', JSON.stringify({ kind: 'quadri-library', version: 1, items: data.items })]];
+  for (const p of data.projects) {
+    let n = safeName(p.name), k = 2;
+    while (used.has(n)) n = safeName(p.name) + ' (' + k++ + ')';
+    used.add(n);
+    files.push([`quadri/${n}.json`, JSON.stringify({ kind: 'quadri-project', version: 1, project: p }, null, 1)]);
+  }
+  try { downloadBlob(`backup-quadri-${today()}.zip`, await makeZip(files)); toast('Backup ZIP creato'); }
+  catch (e) { toast('ZIP non creato: ' + e.message); }
+}
+
+async function readZip(f) {
+  const JSZip = await loadScript(JSZIP_URL, 'JSZip');
+  const zip = await JSZip.loadAsync(await f.arrayBuffer());
+  const full = zip.file('backup-completo.json');
+  if (full) return JSON.parse(await full.async('string'));
+  const out = { items: [], projects: [] };
+  for (const e of Object.values(zip.files)) {
+    if (e.dir || !/\.json$/i.test(e.name)) continue;
+    try {
+      const d = JSON.parse(await e.async('string'));
+      if (Array.isArray(d.items)) out.items.push(...d.items);
+      if (d.project) out.projects.push(d.project);
+      if (Array.isArray(d.projects)) out.projects.push(...d.projects);
+    } catch { /* file non valido: ignorato */ }
+  }
+  return out;
+}
+
+async function importFile() {
+  const f = await pickFile('.json,.zip,application/json,application/zip');
+  if (!f) return;
+  let data;
+  try { data = /\.zip$/i.test(f.name) ? await readZip(f) : JSON.parse(await f.text()); }
+  catch { return toast('File non valido'); }
+  await importData(data);
+}
+
+async function importData(data) {
+  let nItems = 0, nProj = 0;
+  if (Array.isArray(data.items) && data.items.length) {
+    await db.putMany('library', data.items);
+    nItems = data.items.length;
+    state.library = await db.all('library');
+  }
+  const projs = data.project ? [data.project] : Array.isArray(data.projects) ? data.projects : [];
+  for (const p of projs) {
+    const ex = state.projects.find(x => x.id === p.id);
+    if (ex && !await ask(`Il quadro «${p.name}» esiste già.`, 'Sovrascrivi', 'Importa come copia')) {
+      p.id = uid(); p.name += ' (importato)';
+    }
+    await db.put('projects', p);
+    state.projects = state.projects.filter(x => x.id !== p.id).concat(p);
+    if (state.project.id === p.id) state.project = p;
+    nProj++;
+  }
+  if (!nItems && !nProj) return toast('Nessun dato riconosciuto nel file');
+  toast(`Importati ${nItems ? nItems + ' articoli' : ''}${nItems && nProj ? ' e ' : ''}${nProj ? nProj + ' quadri' : ''}`);
+  render();
+}
+
+// ---------------------------------------------------------------- SALVATAGGIO IN CLOUD (GitHub Gist privato)
+const CLOUD_FILE = 'quadri-elettrici-backup.json';
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* archivio non disponibile */ } };
+const DEVICE = lsGet('qe-device') || (() => { const d = uid(); lsSet('qe-device', d); return d; })();
+const cloud = Object.assign({ token: '', gistId: '', login: '', auto: true, pushedAt: 0 }, lsGet('qe-cloud') || {});
+const saveCloudCfg = () => lsSet('qe-cloud', cloud);
+const cloudOn = () => !!(cloud.token && cloud.gistId);
+let localChangedAt = lsGet('qe-changed') || 0;
+let pushT = null, pushing = false, pushAgain = false, booting = true, chipState = 'local', chipMsg = '';
+
+function onDataChanged() {
+  if (booting) return;
+  localChangedAt = Date.now();
+  lsSet('qe-changed', localChangedAt);
+  if (cloudOn() && cloud.auto) {
+    setChip('dirty');
+    clearTimeout(pushT);
+    pushT = setTimeout(() => { pushT = null; cloudPush(); }, 3000);
+  } else setChip('local');
+}
+
+const hhmm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+function setChip(st, msg = '') {
+  if (st === 'dirty' && !(cloudOn() && cloud.auto) && saveT === null) st = 'local';
+  chipState = st; chipMsg = msg;
+  const c = $('#saveChip'); if (!c) return;
+  const txt = {
+    local: cloudOn() && !cloud.auto ? '💾 Salvato sul dispositivo (cloud manuale)' : cloudOn() ? `☁ Salvato nel cloud ${cloud.pushedAt ? hhmm(cloud.pushedAt) : ''}` : '💾 Salvato sul dispositivo',
+    dirty: '● Modifiche in corso…',
+    saving: '☁ Salvataggio nel cloud…',
+    cloud: `☁ Salvato nel cloud ${hhmm(cloud.pushedAt || Date.now())}`,
+    offline: '☁ Offline: salvato sul dispositivo',
+    err: '⚠ Errore cloud',
+  }[st];
+  c.textContent = txt;
+  c.className = 'save-chip' + (st === 'err' ? ' err' : st === 'offline' ? ' warn' : '');
+  c.title = msg || 'Stato del salvataggio: tocca per le impostazioni del cloud';
+}
+
+async function gh(path, opt = {}) {
+  let r;
+  try {
+    r = await fetch('https://api.github.com' + path, {
+      ...opt, cache: 'no-store',
+      headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + cloud.token, 'X-GitHub-Api-Version': '2022-11-28',
+        ...(opt.body ? { 'Content-Type': 'application/json' } : {}) },
+    });
+  } catch { const e = new Error('connessione assente'); e.offline = true; throw e; }
+  if (!r.ok) {
+    const e = new Error(r.status === 401 ? 'token non valido o scaduto' : r.status === 404 ? 'Gist non trovato (o token senza permesso «gist»)'
+      : r.status === 403 ? 'accesso negato da GitHub (permessi del token o limite richieste)' : 'GitHub ha risposto ' + r.status);
+    e.status = r.status;
+    throw e;
+  }
+  return r.status === 204 ? null : r.json();
+}
+
+async function cloudFetch() {
+  const g = await gh('/gists/' + cloud.gistId);
+  const f = g.files?.[CLOUD_FILE];
+  if (!f) return null;
+  const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+async function cloudPush(manual, closing) {
+  if (!cloudOn()) return;
+  if (pushing) { pushAgain = true; return; }
+  if (navigator.onLine === false) { setChip('offline'); if (manual) toast('Sei offline: i dati restano sul dispositivo'); return; }
+  pushing = true;
+  setChip('saving');
+  try {
+    const data = backupData();
+    clearTimeout(pushT); pushT = null;
+    flushProject();
+    const body = JSON.stringify({ files: { [CLOUD_FILE]: { content: JSON.stringify(data) } } });
+    // alla chiusura la richiesta deve sopravvivere alla pagina (keepalive: max 64 kB)
+    await gh('/gists/' + cloud.gistId, { method: 'PATCH', body, keepalive: !!closing && body.length < 60000 });
+    cloud.pushedAt = data.savedAt;
+    saveCloudCfg();
+    setChip(localChangedAt > cloud.pushedAt ? 'dirty' : 'cloud');
+    if (manual) toast('Salvato nel cloud');
+  } catch (e) {
+    setChip(e.offline ? 'offline' : 'err', e.message);
+    if (manual) toast('Cloud: ' + e.message);
+  } finally {
+    pushing = false;
+    if (pushAgain || (cloud.auto && localChangedAt > cloud.pushedAt && chipState === 'dirty')) { pushAgain = false; cloudPush(); }
+  }
+}
+
+// sostituisce tutti i dati locali con quelli del backup (dal cloud)
+async function replaceAll(data) {
+  booting = true;
+  try {
+    await db.clear('library');
+    await db.clear('projects');
+    if (data.items?.length) await db.putMany('library', data.items);
+    if (data.projects?.length) await db.putMany('projects', data.projects);
+    state.library = await db.all('library');
+    state.projects = await db.all('projects');
+    const meta = (await db.get('meta', 'app')) || { id: 'app' };
+    let p = state.projects.find(x => x.id === meta.last) || [...state.projects].sort((a, b) => b.updated - a.updated)[0];
+    if (!p) { p = newProject('Il mio primo quadro'); await db.put('projects', p); state.projects.push(p); }
+    saveT = null;
+    openProject(p);
+    cloud.pushedAt = data.savedAt || Date.now();
+    localChangedAt = cloud.pushedAt;
+    lsSet('qe-changed', localChangedAt);
+    saveCloudCfg();
+  } finally { booting = false; }
+  render();
+  setChip('cloud');
+}
+
+const fmtDate = t => new Date(t).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const sumTxt = d => `${d.projects?.length || 0} quadri, ${d.items?.length || 0} articoli`;
+
+// all'avvio: se nel cloud c'è una versione più recente la propone
+async function cloudSync() {
+  if (!cloudOn() || navigator.onLine === false) return;
+  setChip('saving');
+  let remote;
+  try { remote = await cloudFetch(); }
+  catch (e) { setChip(e.offline ? 'offline' : 'err', e.message); return; }
+  const localDirty = localChangedAt > cloud.pushedAt;
+  if (remote && remote.savedAt > cloud.pushedAt + 1000) {
+    const msg = localDirty
+      ? `Nel cloud c'è una versione del ${fmtDate(remote.savedAt)} (${sumTxt(remote)}) salvata da un altro dispositivo, ma anche qui ci sono modifiche non ancora salvate nel cloud. Quale vuoi tenere?`
+      : `Nel cloud c'è una versione più recente, del ${fmtDate(remote.savedAt)} (${sumTxt(remote)}). Vuoi caricarla?`;
+    if (await ask(msg, 'Usa quella del cloud', localDirty ? 'Tieni questa' : 'Non ora')) return replaceAll(remote);
+    if (localDirty) return cloudPush();
+    return setChip('local');
+  }
+  if (!remote || localDirty) return cloudPush();
+  setChip('cloud');
+}
+
+async function cloudConnect(token) {
+  cloud.token = token.trim();
+  const me = await gh('/user');
+  cloud.login = me.login || '';
+  // cerca un backup già esistente (es. creato da un altro dispositivo)
+  let found = null;
+  for (let page = 1; page <= 5 && !found; page++) {
+    const list = await gh(`/gists?per_page=100&page=${page}`);
+    found = list.find(g => g.files && g.files[CLOUD_FILE]);
+    if (list.length < 100) break;
+  }
+  if (found) {
+    cloud.gistId = found.id;
+    cloud.pushedAt = 0;
+    saveCloudCfg();
+    const remote = await cloudFetch();
+    if (remote && await ask(`Nel tuo GitHub c'è già un backup del ${fmtDate(remote.savedAt)} (${sumTxt(remote)}). Vuoi caricarlo su questo dispositivo? Se scegli «Tieni questi», il backup nel cloud viene sostituito dai dati di questo dispositivo.`, 'Carica dal cloud', 'Tieni questi'))
+      return replaceAll(remote);
+    return cloudPush(true);
+  }
+  const data = backupData();
+  const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Quadri Elettrici – salvataggio automatico', public: false,
+    files: { [CLOUD_FILE]: { content: JSON.stringify(data) } } }) });
+  cloud.gistId = g.id;
+  cloud.pushedAt = data.savedAt;
+  saveCloudCfg();
+  setChip('cloud');
+  toast('Cloud collegato: backup creato nel tuo GitHub');
+}
+
+function openCloudSheet() {
+  const on = cloudOn();
+  openSheet('cloud', 'Salvataggio cloud', `
+    ${EMBEDDED ? '<p class="cloud-box warn-t">Da questa pagina il collegamento a GitHub è bloccato: apri l\'app dal suo indirizzo GitHub Pages per usare il cloud.</p>' : ''}
+    <p class="small">I quadri e la libreria vengono salvati da soli su questo dispositivo. Collegando il cloud, una copia viene salvata anche in un <b>Gist privato</b> del tuo account GitHub e la ritrovi su PC e telefono.</p>
+    ${on ? `<div class="cloud-box">Collegato${cloud.login ? ' come <b>' + esc(cloud.login) + '</b>' : ''}.<br>Gist: <a href="https://gist.github.com/${esc(cloud.gistId)}" target="_blank" rel="noopener">${esc(CLOUD_FILE)}</a></div>`
+      : `<div class="cloud-box"><b>Come collegarlo (una volta per dispositivo)</b><ol>
+        <li>Apri <a href="https://github.com/settings/tokens/new?scopes=gist&description=Quadri%20Elettrici" target="_blank" rel="noopener">questa pagina di GitHub</a> (accedi se serve).</li>
+        <li>In «Expiration» scegli la durata (es. «No expiration» o 1 anno). Il permesso <b>gist</b> è già spuntato: non selezionare altro.</li>
+        <li>Premi «Generate token», copia il codice che inizia con <b>ghp_</b> e incollalo qui sotto.</li></ol></div>`}
+    <div class="form">
+      ${on ? '' : '<label class="wide">Token GitHub<input id="cTok" type="password" autocomplete="off" placeholder="ghp_…"></label>'}
+      <label class="chk wide"><input type="checkbox" id="cAuto" ${cloud.auto ? 'checked' : ''}> Salva nel cloud in automatico a ogni modifica e alla chiusura</label>
+    </div>
+    <div class="actions">
+      ${on ? '<button class="btn primary" id="cPush">Salva ora</button><button class="btn" id="cPull">Scarica dal cloud</button><button class="btn danger" id="cOff">Scollega</button>'
+        : '<button class="btn primary" id="cOn">Collega</button>'}
+    </div>
+    <p class="cloud-st ${chipState === 'err' ? 'err' : on && chipState === 'cloud' ? 'ok' : ''}" id="cSt">${on
+      ? (chipState === 'err' ? '⚠ ' + esc(chipMsg) : cloud.pushedAt ? '✔ Ultimo salvataggio nel cloud: ' + fmtDate(cloud.pushedAt) : 'Non ancora salvato nel cloud')
+      : 'Cloud non collegato'}</p>
+    <p class="note">Il token resta salvato solo in questo browser. Se lo perdi o lo revochi su GitHub, i dati restano nel Gist: basta crearne uno nuovo e ricollegarsi.</p>`);
+  $('#cAuto').onchange = e => { cloud.auto = e.target.checked; saveCloudCfg(); if (cloud.auto && localChangedAt > cloud.pushedAt) cloudPush(); setChip(chipState); };
+  $('#cOn') && ($('#cOn').onclick = async () => {
+    const t = $('#cTok').value.trim();
+    if (!t) return toast('Incolla il token di GitHub');
+    $('#cOn').disabled = true;
+    $('#cSt').textContent = 'Collegamento in corso…';
+    try { await cloudConnect(t); openCloudSheet(); }
+    catch (e) {
+      cloud.token = ''; cloud.gistId = ''; saveCloudCfg();
+      $('#cOn').disabled = false;
+      $('#cSt').className = 'cloud-st err';
+      $('#cSt').textContent = '⚠ ' + e.message;
+    }
+  });
+  $('#cPush') && ($('#cPush').onclick = async () => { await cloudPush(true); openCloudSheet(); });
+  $('#cPull') && ($('#cPull').onclick = async () => {
+    try {
+      const remote = await cloudFetch();
+      if (!remote) return toast('Il backup nel cloud è vuoto');
+      if (await ask(`Sostituire i dati di questo dispositivo con il backup del cloud del ${fmtDate(remote.savedAt)} (${sumTxt(remote)})?`, 'Sostituisci')) {
+        await replaceAll(remote);
+        toast('Dati caricati dal cloud');
+      }
+    } catch (e) { toast('Cloud: ' + e.message); }
+  });
+  $('#cOff') && ($('#cOff').onclick = async () => {
+    if (!await ask('Scollegare il cloud da questo dispositivo? I dati restano qui e nel Gist.', 'Scollega')) return;
+    Object.assign(cloud, { token: '', gistId: '', login: '', pushedAt: 0 });
+    saveCloudCfg();
+    setChip('local');
+    openCloudSheet();
+  });
+}
+
+// alla chiusura o quando l'app va in secondo piano: salva subito
+const unsynced = () => cloudOn() && cloud.auto && (!!pushT || pushing || localChangedAt > cloud.pushedAt);
+function saveNow() {
+  flushProject();
+  if (unsynced() && !pushing) { clearTimeout(pushT); pushT = null; cloudPush(false, true); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+window.addEventListener('pagehide', saveNow);
+window.addEventListener('beforeunload', e => {
+  const pending = unsynced() && navigator.onLine !== false;
+  saveNow();
+  // chiede conferma solo se il salvataggio nel cloud non è ancora finito
+  if (pending) { e.preventDefault(); e.returnValue = ''; }
+});
+window.addEventListener('online', () => { if (cloudOn() && cloud.auto && localChangedAt > cloud.pushedAt) cloudPush(); });
+window.addEventListener('offline', () => { if (cloudOn()) setChip('offline'); });
+
+// ---------------------------------------------------------------- stampa
+function doPrint() {
+  if (EMBEDDED) return toast('La stampa non è disponibile in questa pagina: usa la versione su GitHub');
+  const p = state.project, res = computeAll(p), tg = tagMap(p);
+  const M = Math.min(26, Math.floor(980 / (p.mods + 2)));
+  $('#print-area').innerHTML = `
+    <header class="ph"><h1>${esc(p.name)}</h1>
+      <p>${esc([p.client, p.place].filter(Boolean).join(' – '))} · ${new Date().toLocaleDateString('it-IT')}<br>
+      Alimentazione ${p.supply === '400' ? 'trifase 400 V' : 'monofase 230 V'}${num(p.icc) ? ' · Icc presunta ' + esc(p.icc) + ' kA' : ''}</p>
+      ${p.notes ? `<p>${esc(p.notes)}</p>` : ''}</header>
+    <h2>Fronte quadro</h2>${panelHTML(p, M, res, tg, false)}
+    <h2 class="pb">Schema unifilare</h2>${unifilareSVG(p, res, tg)}
+    <h2 class="pb">Distinta materiali</h2>${bomTables(p, tg)}`;
+  setTimeout(() => window.print(), 400);
+}
+
+// ---------------------------------------------------------------- avvio
+async function init() {
+  state.library = await db.all('library');
+  const meta = (await db.get('meta', 'app')) || { id: 'app' };
+  if (!meta.seeded) {
+    await db.putMany('library', SEED);
+    state.library = await db.all('library');
+    meta.seeded = true;
+    await db.put('meta', meta);
+  }
+  state.projects = await db.all('projects');
+  let p = state.projects.find(x => x.id === meta.last) || [...state.projects].sort((a, b) => b.updated - a.updated)[0];
+  if (!p) { p = newProject('Il mio primo quadro'); await db.put('projects', p); state.projects.push(p); }
+  openProject(p);
+
+  $$('.tabs button').forEach(b => b.onclick = () => { state.view = b.dataset.view; state.placing = null; closeSheet(); render(); });
+  $('#sheetClose').onclick = closeSheet;
+  $('#bPrint').onclick = doPrint;
+  $('#saveChip').onclick = openCloudSheet;
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selected && state.view === 'quadro' &&
+      !e.target.closest('input,select,textarea')) { e.preventDefault(); deleteDevice(state.selected); return; }
+    if (e.key !== 'Escape') return;
+    if (state.sheet) closeSheet();
+    else if (state.placing) { state.placing = null; renderPalette(); renderPanel(); }
+  });
+  if (EMBEDDED) document.body.classList.add('embedded');
+  render();
+  booting = false;
+  setChip(cloudOn() ? (localChangedAt > cloud.pushedAt ? 'dirty' : 'cloud') : 'local');
+  if (isVolatile()) toast('Attenzione: questo browser non permette il salvataggio, i dati andranno persi alla chiusura');
+  else if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+  cloudSync();
+
+  if (!EMBEDDED && 'serviceWorker' in navigator && location.protocol.startsWith('http'))
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+init().catch(e => { document.body.innerHTML = `<p style="padding:20px">Errore di avvio: ${esc(e.message)}</p>`; console.error(e); });
+</script>
+</body></html>
