@@ -2312,10 +2312,10 @@ const cloud = Object.assign({ token: '', gistId: '', login: '', auto: true, push
 const saveCloudCfg = () => lsSet('qe-cloud', cloud);
 const cloudOn = () => !!(cloud.token && cloud.gistId);
 let localChangedAt = lsGet('qe-changed') || 0;
-let pushT = null, pushing = false, pushAgain = false, booting = true, chipState = 'local', chipMsg = '';
+let pushT = null, pushing = false, pushAgain = false, booting = true, retired = false, chipState = 'local', chipMsg = '';
 
 function onDataChanged() {
-  if (booting) return;
+  if (booting || retired) return;
   localChangedAt = Date.now();
   lsSet('qe-changed', localChangedAt);
   if (cloudOn() && cloud.auto) {
@@ -2361,37 +2361,83 @@ async function gh(path, opt = {}) {
   return r.status === 204 ? null : r.json();
 }
 
+// Il backup nel cloud è diviso in 3 file: quadri (piccolo, inviato a ogni modifica),
+// libreria e immagini (inviati solo quando cambiano). Così il salvataggio alla chiusura resta sotto i 64 kB.
+const CF = { proj: 'qe-quadri.json', lib: 'qe-libreria.json', img: 'qe-immagini.json' };
+const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + s.length.toString(36); };
+
+function splitBackup() {
+  const imgs = {};
+  const ref = v => { if (!v || !String(v).startsWith('data:')) return v; const h = hashStr(v); imgs[h] = v; return '#' + h; };
+  const items = state.library.map(it => ({ ...it, img: ref(it.img) }));
+  const projects = state.projects.map(p => ({ ...p, devices: p.devices.map(d => ({ ...d, item: { ...d.item, img: ref(d.item.img) } })) }));
+  return { projects, items, imgs };
+}
+function joinBackup(projects, items, imgs) {
+  const get = v => typeof v === 'string' && v.startsWith('#') ? (imgs[v.slice(1)] || '') : v;
+  return {
+    items: (items || []).map(it => ({ ...it, img: get(it.img) })),
+    projects: (projects || []).map(p => ({ ...p, devices: (p.devices || []).map(d => ({ ...d, item: { ...d.item, img: get(d.item.img) } })) })),
+  };
+}
+
 async function cloudFetch() {
   const g = await gh('/gists/' + cloud.gistId);
-  const f = g.files?.[CLOUD_FILE];
-  if (!f) return null;
-  const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
-  try { return JSON.parse(text); } catch { return null; }
+  const read = async f => {
+    if (!f) return null;
+    const text = f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content;
+    try { return JSON.parse(text); } catch { return null; }
+  };
+  const fp = await read(g.files?.[CF.proj]);
+  if (fp) {
+    const [fl, fi] = await Promise.all([read(g.files[CF.lib]), read(g.files[CF.img])]);
+    const out = joinBackup(fp.projects, fl?.items, fi?.imgs || {});
+    return { kind: 'quadri-backup', version: 2, savedAt: fp.savedAt, device: fp.device, ...out };
+  }
+  return read(g.files?.[CLOUD_FILE]); // formato precedente (un solo file)
 }
 
 async function cloudPush(manual, closing) {
-  if (!cloudOn()) return;
+  if (!cloudOn() || retired) return;
   if (pushing) { pushAgain = true; return; }
   if (navigator.onLine === false) { setChip('offline'); if (manual) toast('Sei offline: i dati restano sul dispositivo'); return; }
   pushing = true;
   setChip('saving');
   try {
-    const data = backupData();
     clearTimeout(pushT); pushT = null;
     flushProject();
-    const body = JSON.stringify({ files: { [CLOUD_FILE]: { content: JSON.stringify(data) } } });
-    // alla chiusura la richiesta deve sopravvivere alla pagina (keepalive: max 64 kB)
-    await gh('/gists/' + cloud.gistId, { method: 'PATCH', body, keepalive: !!closing && body.length < 60000 });
-    cloud.pushedAt = data.savedAt;
+    const savedAt = Date.now();
+    const { projects, items, imgs } = splitBackup();
+    const parts = { lib: JSON.stringify({ items }), img: JSON.stringify({ imgs }) };
+    const hashes = { lib: hashStr(parts.lib), img: hashStr(parts.img) };
+    const files = { [CF.proj]: { content: JSON.stringify({ kind: 'quadri-cloud', version: 2, savedAt, device: DEVICE, projects }) } };
+    let size = files[CF.proj].content.length;
+    const sent = {};
+    for (const k of ['lib', 'img']) {
+      if (!manual && cloud.hashes?.[k] === hashes[k]) continue;
+      if (closing && size + parts[k].length > 58000) continue; // alla chiusura: lo invio alla prossima apertura
+      files[CF[k]] = { content: parts[k] };
+      size += parts[k].length;
+      sent[k] = true;
+    }
+    if (cloud.legacy !== false) files[CLOUD_FILE] = null; // elimina il vecchio file unico
+    const body = JSON.stringify({ files });
+    await gh('/gists/' + cloud.gistId, { method: 'PATCH', body, keepalive: !!closing && body.length < 63000 });
+    cloud.hashes = { ...(cloud.hashes || {}) };
+    for (const k of Object.keys(sent)) cloud.hashes[k] = hashes[k];
+    cloud.legacy = false;
+    const pending = ['lib', 'img'].some(k => cloud.hashes[k] !== hashes[k]);
+    cloud.pushedAt = pending ? Math.min(savedAt, localChangedAt - 1) : savedAt;
     saveCloudCfg();
     setChip(localChangedAt > cloud.pushedAt ? 'dirty' : 'cloud');
     if (manual) toast('Salvato nel cloud');
   } catch (e) {
+    if (e.status === 422 && cloud.legacy !== false) { cloud.legacy = false; saveCloudCfg(); pushAgain = true; } // file vecchio già assente: riprova
     setChip(e.offline ? 'offline' : 'err', e.message);
     if (manual) toast('Cloud: ' + e.message);
   } finally {
     pushing = false;
-    if (pushAgain || (cloud.auto && localChangedAt > cloud.pushedAt && chipState === 'dirty')) { pushAgain = false; cloudPush(); }
+    if (pushAgain || (cloud.auto && localChangedAt > cloud.pushedAt && chipState === 'dirty' && !closing)) { pushAgain = false; pushT = setTimeout(() => { pushT = null; cloudPush(); }, 1500); }
   }
 }
 
@@ -2411,6 +2457,8 @@ async function replaceAll(data) {
     saveT = null;
     openProject(p);
     cloud.pushedAt = data.savedAt || Date.now();
+    if (data.version === 2) { const sb = splitBackup(); cloud.hashes = { lib: hashStr(JSON.stringify({ items: sb.items })), img: hashStr(JSON.stringify({ imgs: sb.imgs })) }; }
+    else cloud.hashes = {};
     localChangedAt = cloud.pushedAt;
     lsSet('qe-changed', localChangedAt);
     saveCloudCfg();
@@ -2424,7 +2472,7 @@ const sumTxt = d => `${d.projects?.length || 0} quadri, ${d.items?.length || 0} 
 
 // all'avvio: se nel cloud c'è una versione più recente la propone
 async function cloudSync() {
-  if (!cloudOn() || navigator.onLine === false) return;
+  if (!cloudOn() || retired || navigator.onLine === false) return;
   setChip('saving');
   let remote;
   try { remote = await cloudFetch(); }
@@ -2450,25 +2498,27 @@ async function cloudConnect(token) {
   let found = null;
   for (let page = 1; page <= 5 && !found; page++) {
     const list = await gh(`/gists?per_page=100&page=${page}`);
-    found = list.find(g => g.files && g.files[CLOUD_FILE]);
+    found = list.find(g => g.files && (g.files[CF.proj] || g.files[CLOUD_FILE]));
     if (list.length < 100) break;
   }
   if (found) {
     cloud.gistId = found.id;
     cloud.pushedAt = 0;
+    cloud.hashes = {};
+    cloud.legacy = !!found.files[CLOUD_FILE];
     saveCloudCfg();
     const remote = await cloudFetch();
     if (remote && await ask(`Nel tuo GitHub c'è già un backup del ${fmtDate(remote.savedAt)} (${sumTxt(remote)}). Vuoi caricarlo su questo dispositivo? Se scegli «Tieni questi», il backup nel cloud viene sostituito dai dati di questo dispositivo.`, 'Carica dal cloud', 'Tieni questi'))
       return replaceAll(remote);
     return cloudPush(true);
   }
-  const data = backupData();
   const g = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Quadri Elettrici – salvataggio automatico', public: false,
-    files: { [CLOUD_FILE]: { content: JSON.stringify(data) } } }) });
+    files: { [CF.proj]: { content: JSON.stringify({ kind: 'quadri-cloud', version: 2, savedAt: Date.now(), device: DEVICE, projects: [] }) } } }) });
   cloud.gistId = g.id;
-  cloud.pushedAt = data.savedAt;
+  cloud.legacy = false;
+  cloud.hashes = {};
   saveCloudCfg();
-  setChip('cloud');
+  await cloudPush(true);
   toast('Cloud collegato: backup creato nel tuo GitHub');
 }
 
@@ -2477,7 +2527,7 @@ function openCloudSheet() {
   openSheet('cloud', 'Salvataggio cloud', `
     ${EMBEDDED ? '<p class="cloud-box warn-t">Da questa pagina il collegamento a GitHub è bloccato: apri l\'app dal suo indirizzo GitHub Pages per usare il cloud.</p>' : ''}
     <p class="small">I quadri e la libreria vengono salvati da soli su questo dispositivo. Collegando il cloud, una copia viene salvata anche in un <b>Gist privato</b> del tuo account GitHub e la ritrovi su PC e telefono.</p>
-    ${on ? `<div class="cloud-box">Collegato${cloud.login ? ' come <b>' + esc(cloud.login) + '</b>' : ''}.<br>Gist: <a href="https://gist.github.com/${esc(cloud.gistId)}" target="_blank" rel="noopener">${esc(CLOUD_FILE)}</a></div>`
+    ${on ? `<div class="cloud-box">Collegato${cloud.login ? ' come <b>' + esc(cloud.login) + '</b>' : ''}.<br>Gist privato: <a href="https://gist.github.com/${esc(cloud.gistId)}" target="_blank" rel="noopener">apri su GitHub</a></div>`
       : `<div class="cloud-box"><b>Come collegarlo (una volta per dispositivo)</b><ol>
         <li>Apri <a href="https://github.com/settings/tokens/new?scopes=gist&description=Quadri%20Elettrici" target="_blank" rel="noopener">questa pagina di GitHub</a> (accedi se serve).</li>
         <li>In «Expiration» scegli la durata (es. «No expiration» o 1 anno). Il permesso <b>gist</b> è già spuntato: non selezionare altro.</li>
@@ -2521,7 +2571,7 @@ function openCloudSheet() {
   });
   $('#cOff') && ($('#cOff').onclick = async () => {
     if (!await ask('Scollegare il cloud da questo dispositivo? I dati restano qui e nel Gist.', 'Scollega')) return;
-    Object.assign(cloud, { token: '', gistId: '', login: '', pushedAt: 0 });
+    Object.assign(cloud, { token: '', gistId: '', login: '', pushedAt: 0, hashes: {} });
     saveCloudCfg();
     setChip('local');
     openCloudSheet();
@@ -2531,6 +2581,7 @@ function openCloudSheet() {
 // alla chiusura o quando l'app va in secondo piano: salva subito
 const unsynced = () => cloudOn() && cloud.auto && (!!pushT || pushing || localChangedAt > cloud.pushedAt);
 function saveNow() {
+  if (retired) return;
   flushProject();
   if (unsynced() && !pushing) { clearTimeout(pushT); pushT = null; cloudPush(false, true); }
 }
@@ -2540,8 +2591,52 @@ window.addEventListener('beforeunload', e => {
   const pending = unsynced() && navigator.onLine !== false;
   saveNow();
   // chiede conferma solo se il salvataggio nel cloud non è ancora finito
-  if (pending) { e.preventDefault(); e.returnValue = ''; }
+  if (pending && !retired) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// una sola scheda attiva: se l'app viene aperta in un'altra scheda, questa si ferma (niente sovrascritture)
+const TAB_ID = uid();
+let bc = null;
+try { bc = new BroadcastChannel('quadri-elettrici'); } catch { /* browser senza BroadcastChannel */ }
+function retireTab() {
+  if (retired) return;
+  flushProject();
+  retired = true;
+  clearTimeout(pushT);
+  const w = document.createElement('div');
+  w.className = 'modal';
+  w.innerHTML = `<div class="modal-box"><p><b>App aperta in un'altra scheda</b></p>
+    <p class="small muted">Per non sovrascrivere i dati, questa scheda è stata fermata. Usa l'altra scheda oppure ricarica questa per riprendere da qui.</p>
+    <div class="actions"><button class="btn primary" data-r="reload">Ricarica qui</button></div></div>`;
+  w.querySelector('[data-r=reload]').onclick = () => location.reload();
+  document.body.appendChild(w);
+}
+if (bc) bc.onmessage = e => { if (e.data?.t === 'hello' && e.data.id !== TAB_ID) retireTab(); };
+
+// aggiornamenti dell'app (GitHub Pages): controlla e propone di ricaricare
+function showUpdate() {
+  if ($('#updBar')) return;
+  const b = document.createElement('div');
+  b.id = 'updBar';
+  b.className = 'toast';
+  b.style.cssText = 'display:flex;gap:10px;align-items:center;bottom:20px';
+  b.innerHTML = '<span>È disponibile una nuova versione dell\'app</span><button class="btn small primary">Aggiorna</button>';
+  b.querySelector('button').onclick = async () => { await flushProject(); location.reload(); };
+  document.body.appendChild(b);
+}
+async function setupUpdates() {
+  if (EMBEDDED || !('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  const hadController = !!navigator.serviceWorker.controller;
+  let reg;
+  try { reg = await navigator.serviceWorker.register('sw.js'); } catch { return; }
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return; // prima installazione
+    if (document.visibilityState === 'hidden') { flushProject(); location.reload(); } else showUpdate();
+  });
+  const check = () => reg.update().catch(() => {});
+  setInterval(check, 15 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+}
 window.addEventListener('online', () => { if (cloudOn() && cloud.auto && localChangedAt > cloud.pushedAt) cloudPush(); });
 window.addEventListener('offline', () => { if (cloudOn()) setChip('offline'); });
 
@@ -2593,10 +2688,9 @@ async function init() {
   setChip(cloudOn() ? (localChangedAt > cloud.pushedAt ? 'dirty' : 'cloud') : 'local');
   if (isVolatile()) toast('Attenzione: questo browser non permette il salvataggio, i dati andranno persi alla chiusura');
   else if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+  bc?.postMessage({ t: 'hello', id: TAB_ID });
   cloudSync();
-
-  if (!EMBEDDED && 'serviceWorker' in navigator && location.protocol.startsWith('http'))
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  setupUpdates();
 }
 
 init().catch(e => { document.body.innerHTML = `<p style="padding:20px">Errore di avvio: ${esc(e.message)}</p>`; console.error(e); });
