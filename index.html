@@ -796,7 +796,8 @@ function deviceSVG(it) {
   switch (it.type) {
     case 'MT': case 'MTD': case 'ID': case 'SEZ': {
       const col = t.lever;
-      const lev = ard ? (it.type === 'MTD' && m === 3 ? 1 : Math.ceil(m / 2)) : m;
+      // moduli con leva: 5SV1 = 1 modulo; altrimenti i poli dell'interruttore (il resto è il modulo di riarmo)
+      const lev = ard ? (/^5SV1/i.test(it.code || '') ? 1 : Math.max(1, Math.min(m - 1, poleCount(it.poles)))) : m;
       if (lev > 1) s += `<rect x="5" y="55" width="${18 * lev - 10}" height="3.5" fill="${col}"/>`;
       if (ard) {
         const x0 = 18 * lev + 1.5, w = W - x0 - 2;
@@ -1973,7 +1974,8 @@ function rowToItem(row, map, defBrand) {
 
   // corrente, curva, differenziale, kA
   const inCol = numIn(g('In'));
-  it.In = isFinite(inCol) && inCol > 0 ? inCol : (sie.In || inFromText(it.desc) || '');
+  const inDesc = ['MT', 'MTD', 'ID', 'SEZ', 'CONT', 'RIP', 'PRESA'].includes(it.type) ? inFromText(it.desc) : '';
+  it.In = isFinite(inCol) && inCol > 0 ? inCol : (sie.In || inDesc || '');
   it.curve = prot ? (curveFromText(g('curve'), true) || sie.curve || curveFromText(it.desc) || '') : '';
   if (rcd) {
     it.Idn = (g('Idn') && idnFromText(g('Idn'), true)) || sie.Idn || idnFromText(it.desc) || '';

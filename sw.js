@@ -1,5 +1,5 @@
 // Quadri Elettrici – funzionamento offline
-const CACHE = 'quadri-v2';
+const CACHE = 'quadri-v3';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 const LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'];
 
@@ -21,7 +21,7 @@ self.addEventListener('fetch', e => {
   }
   if (url.origin !== location.origin) return;
   // pagine dell'app: prima la rete (aggiornamenti), poi la cache se offline
-  e.respondWith(fetch(e.request).then(r => {
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => {
     if (r.ok) caches.open(CACHE).then(c => c.put(e.request, r.clone()));
     return r;
   }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html'))));
