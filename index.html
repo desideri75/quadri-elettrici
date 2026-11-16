@@ -315,6 +315,7 @@ const TYPES = {
   MTD:   { name: 'Magnetotermico differenziale',    short: 'MTD', color: '#1d5fa8', lever: '#1d5fa8', prot: true, rcd: true, feeds: true },
   ID:    { name: 'Differenziale puro',              short: 'ID',  color: '#1d5fa8', lever: '#1d5fa8', rcd: true, feeds: true },
   SEZ:   { name: 'Sezionatore / interr. di manovra', short: 'SEZ', color: '#c62828', lever: '#c62828', feeds: true },
+  RIP:   { name: 'Ripartitore / morsettiera',        short: 'XD',  color: '#8d5a2b', feeds: true },
   SPD:   { name: 'Scaricatore sovratensioni (SPD)', short: 'SPD', color: '#e0a800' },
   CONT:  { name: 'Contattore',                      short: 'KM',  color: '#555', feeds: true },
   REL:   { name: 'Relè / temporizzatore / orologio', short: 'K',   color: '#555' },
@@ -643,7 +644,7 @@ const db = {
 const sortDevices = arr => [...arr].sort((a, b) => a.row - b.row || a.pos - b.pos);
 const cableInfo = id => CABLES.find(c => c.id === (id || '')) || CABLES[0];
 
-const PREFIX = { MT: 'Q', MTD: 'Q', ID: 'Q', SEZ: 'Q', SPD: 'F', CONT: 'KM', REL: 'K', PRESA: 'X', SPIA: 'H', TRASF: 'T' };
+const PREFIX = { MT: 'Q', MTD: 'Q', ID: 'Q', SEZ: 'Q', RIP: 'XD', SPD: 'F', CONT: 'KM', REL: 'K', PRESA: 'X', SPIA: 'H', TRASF: 'T' };
 
 function tagMap(p) {
   const m = new Map(), cnt = {};
@@ -770,6 +771,9 @@ const F = 'font-family="Arial,Helvetica,sans-serif"';
 const wrap = (W, inner) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 90" preserveAspectRatio="xMidYMid meet">${inner}</svg>`;
 
+// riarmo automatico (motore accoppiato all'interruttore)
+const hasArd = it => /riarmo automatico|auto.?reclos|\bARD\b|5ST305[78]/i.test(`${it.desc} ${it.code} ${it.series}`);
+
 function deviceSVG(it) {
   const m = modsOf(it), W = 18 * m, t = typeOf(it);
   let s = `<rect x=".4" y=".4" width="${W - .8}" height="89.2" rx="1.5" fill="#f5f5f1" stroke="#9c9c95" stroke-width=".8"/>`;
@@ -788,14 +792,40 @@ function deviceSVG(it) {
   const idn = idnText(it);
   if (idn) s += `<text x="${W / 2}" y="38.5" font-size="${m === 1 ? 3.8 : 4.6}" text-anchor="middle" fill="#1d5fa8" ${F}>${esc(idn)}</text>`;
 
+  const ard = ['MT', 'MTD', 'ID'].includes(it.type) && m > 1 && hasArd(it);
   switch (it.type) {
     case 'MT': case 'MTD': case 'ID': case 'SEZ': {
       const col = t.lever;
-      if (m > 1) s += `<rect x="5" y="55" width="${W - 10}" height="3.5" fill="${col}"/>`;
-      for (let i = 0; i < m; i++)
+      const lev = ard ? (it.type === 'MTD' && m === 3 ? 1 : Math.ceil(m / 2)) : m;
+      if (lev > 1) s += `<rect x="5" y="55" width="${18 * lev - 10}" height="3.5" fill="${col}"/>`;
+      if (ard) {
+        const x0 = 18 * lev + 1.5, w = W - x0 - 2;
+        s += `<rect x="${x0}" y="20" width="${w}" height="54" rx="2" fill="#dcdcd5" stroke="#9c9c95" stroke-width=".6"/>`;
+        s += `<path d="M${x0 + w / 2 - 7} 50 a7 7 0 1 0 7 -7" fill="none" stroke="#2e9d46" stroke-width="2"/><path d="M${x0 + w / 2 - 2} 39.5 l3.6 3.4 -3.6 3.4z" fill="#2e9d46"/>`;
+        s += `<text x="${x0 + w / 2}" y="66" font-size="4.6" font-weight="bold" text-anchor="middle" fill="#333" ${F}>AUTO</text>`;
+        s += `<text x="${x0 + w / 2}" y="71" font-size="3.4" text-anchor="middle" fill="#555" ${F}>riarmo</text>`;
+      }
+      for (let i = 0; i < lev; i++)
         s += `<rect x="${18 * i + 5}" y="46" width="8" height="20" rx="1.6" fill="${col}"/><rect x="${18 * i + 6.5}" y="47.5" width="5" height="3" rx=".6" fill="#fff" opacity=".35"/>`;
-      s += `<rect x="${W / 2 - 3}" y="41" width="6" height="2.6" fill="#2e9d46"/>`;
-      if (t.rcd) s += `<rect x="${W - 9}" y="68" width="6" height="5.5" rx="1" fill="#f2c200" stroke="#a88600" stroke-width=".4"/><text x="${W - 6}" y="72.3" font-size="3.6" text-anchor="middle" ${F}>T</text>`;
+      const LW = 18 * lev;
+      s += `<rect x="${LW / 2 - 3}" y="41" width="6" height="2.6" fill="#2e9d46"/>`;
+      if (t.rcd) s += `<rect x="${LW - 9}" y="68" width="6" height="5.5" rx="1" fill="#f2c200" stroke="#a88600" stroke-width=".4"/><text x="${LW - 6}" y="72.3" font-size="3.6" text-anchor="middle" ${F}>T</text>`;
+      break;
+    }
+    case 'RIP': {
+      const bars = /^[34]/.test(it.poles) ? [['L1', '#8d5a2b'], ['L2', '#2a2a2a'], ['L3', '#9a9a9a'], ['N', '#1d5fa8']]
+        : it.poles === '1P' ? [/neutr/i.test(it.desc) ? ['N', '#1d5fa8'] : ['L', '#8d5a2b']] : [['L', '#8d5a2b'], ['N', '#1d5fa8']];
+      const top = 20, hh = 56 / bars.length;
+      const holes = Math.max(2, Math.floor((W - 16) / 8));
+      bars.forEach(([lab, col], i) => {
+        const y = top + i * hh;
+        s += `<rect x="3" y="${y + 1}" width="${W - 6}" height="${hh - 2.5}" rx="1.6" fill="${col}"/>`;
+        s += `<text x="5" y="${y + hh / 2 + 1.6}" font-size="${Math.min(4.4, hh / 2.4)}" font-weight="bold" fill="#fff" ${F}>${lab}</text>`;
+        for (let k = 0; k < holes; k++) {
+          const cx = 14 + k * ((W - 20) / Math.max(1, holes - 1));
+          s += `<circle cx="${cx}" cy="${y + hh / 2}" r="${Math.min(k ? 2.2 : 3.2, hh / 3.4)}" fill="#d6d6d0" stroke="#666" stroke-width=".4"/>`;
+        }
+      });
       break;
     }
     case 'SPD':
@@ -834,8 +864,13 @@ function symbol(it, x, y) {
       s += `<line class="ln" x1="${x - 3.5}" y1="${y + 16.5}" x2="${x + 3.5}" y2="${y + 23.5}"/><line class="ln" x1="${x + 3.5}" y1="${y + 16.5}" x2="${x - 3.5}" y2="${y + 23.5}"/>`;
     if (t === 'SEZ') s += `<line class="ln" x1="${x - 4}" y1="${y + 20}" x2="${x + 4}" y2="${y + 20}"/>`;
     if (t === 'CONT') s += `<path class="ln" d="M${x - 4} ${y + 20} a4 4 0 0 0 8 0"/>`;
+    if ((t === 'MT' || t === 'MTD') && hasArd(it)) s += `<text class="s" x="${x - 30}" y="${y + 30}">ARD</text>`;
     if (tp.rcd)
       s += `<ellipse class="ln" cx="${x}" cy="${y + 53}" rx="9" ry="3.5"/><path class="ln dash" d="M${x - 9} ${y + 53} H${x - 16} V${y + 33} H${x - 6}"/>`;
+  } else if (t === 'RIP') {
+    s += `<line class="ln" x1="${x}" y1="${y}" x2="${x}" y2="${y + 22}"/>${ticks}`;
+    s += `<rect class="ln" x="${x - 11}" y="${y + 22}" width="22" height="16" fill="#fff"/><line class="bus" x1="${x - 8}" y1="${y + 30}" x2="${x + 8}" y2="${y + 30}"/>`;
+    s += `<line class="ln" x1="${x}" y1="${y + 38}" x2="${x}" y2="${y + 62}"/>`;
   } else {
     s += `<line class="ln" x1="${x}" y1="${y}" x2="${x}" y2="${y + 18}"/>${ticks}`;
     s += `<rect class="ln" x="${x - 13}" y="${y + 18}" width="26" height="26" fill="#fff"/>`;
@@ -1772,6 +1807,7 @@ const TYPE_KW = [
   ['MTD', /magnetotermic\w* differenzial|differenzial\w* magnetotermic|\brcbo\b|fi ?ls|\bmtd\b|blocco differenzial|with overload protection/],
   ['SPD', /scaricator|\bspd\b|surge|sovratension|lightning|parafulmin/],
   ['VUOTO', /copriforo|modulo vuoto|\bblank/],
+  ['RIP', /ripartitor|morsettier|distribution block|distributor block|blocco (di )?distribuzion|barr\w* (di )?neutro|ripartizion/],
   ['ID', /differenzial|\brccb\b|residual current|\bfi\b|\bid\b|salvavita/],
   ['MT', /magnetotermic|\bmcb\b|miniature circuit|circuit breaker|interruttore automatico|\bls\b/],
   ['SEZ', /sezionator|disconnector|isolator|interruttore di manovra|off switch|\bsez\b|sezionament/],
@@ -1787,7 +1823,7 @@ function typeFromText(t) {
   if (!s) return '';
   const up = s.toUpperCase();
   if (TYPES[up]) return up;
-  const alias = { Q: 'MT', KM: 'CONT', K: 'REL', PR: 'PRESA', H: 'SPIA', T: 'TRASF', RCBO: 'MTD', RCCB: 'ID', MCB: 'MT' };
+  const alias = { XD: 'RIP', Q: 'MT', KM: 'CONT', K: 'REL', PR: 'PRESA', H: 'SPIA', T: 'TRASF', RCBO: 'MTD', RCCB: 'ID', MCB: 'MT' };
   if (alias[up]) return alias[up];
   const n = normTxt(s);
   for (const k of Object.keys(TYPES)) if (normTxt(TYPES[k].name) === n) return k;
@@ -1858,7 +1894,7 @@ const roundMods = v => { v = numIn(v); return isFinite(v) && v > 0 ? Math.max(1,
 
 // --- decodifica dei codici Siemens (SENTRON)
 const STD_I = [1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
-const SIEMENS_RE = /^(5S[LYVUMDXJ]|5T[TLE]|3RT|7KT|7LF|4AC)/;
+const SIEMENS_RE = /^(5S[LYVUMDXJT]|5T[TLE]|3RT|7KT|7LF|4AC)/;
 
 function decodeSiemens(code) {
   const c = String(code ?? '').toUpperCase().replace(/[\s]/g, '');
@@ -1889,6 +1925,8 @@ function decodeSiemens(code) {
     const P = { 2: ['1P+N', 2], 4: ['3P+N', 3] }[m[2]];
     return { type: 'SPD', poles: P ? P[0] : '', modules: P ? P[1] : '', series: '5SD7', desc: m[1] === '2' ? 'Tipo 2' : '' };
   }
+  // ripartitori 5ST25
+  if (/^5ST25/.test(c)) return { type: 'RIP', poles: '3P+N', series: '5ST25' };
   // contattori 5TT5
   if (/^5TT5/.test(c)) return { type: 'CONT', series: '5TT5' };
   // sezionatori 5TL1 2 63-0
@@ -1900,13 +1938,14 @@ function decodeSiemens(code) {
   return {};
 }
 
-const DEF_POLES = { MT: '1P+N', MTD: '1P+N', ID: '2P', SEZ: '2P', SPD: '1P+N', CONT: '2P', REL: '1P', PRESA: '2P', SPIA: '1P', TRASF: '1P', VUOTO: '1P' };
+const DEF_POLES = { MT: '1P+N', MTD: '1P+N', ID: '2P', SEZ: '2P', RIP: '3P+N', SPD: '1P+N', CONT: '2P', REL: '1P', PRESA: '2P', SPIA: '1P', TRASF: '1P', VUOTO: '1P' };
 function defaultMods(type, poles) {
   const n = poleCount(poles);
   if (type === 'MTD') return poles === '1P+N' ? 2 : 4;
   if (['REL', 'SPIA', 'VUOTO'].includes(type)) return 1;
   if (type === 'PRESA') return 3;
   if (type === 'TRASF') return 2;
+  if (type === 'RIP') return n >= 4 ? 6 : n >= 2 ? 2 : 1;
   return poles === '1P+N' ? 2 : n;
 }
 
