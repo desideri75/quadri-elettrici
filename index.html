@@ -2529,7 +2529,7 @@ function openCloudSheet() {
     <p class="small">I quadri e la libreria vengono salvati da soli su questo dispositivo. Collegando il cloud, una copia viene salvata anche in un <b>Gist privato</b> del tuo account GitHub e la ritrovi su PC e telefono.</p>
     ${on ? `<div class="cloud-box">Collegato${cloud.login ? ' come <b>' + esc(cloud.login) + '</b>' : ''}.<br>Gist privato: <a href="https://gist.github.com/${esc(cloud.gistId)}" target="_blank" rel="noopener">apri su GitHub</a></div>`
       : `<div class="cloud-box"><b>Come collegarlo (una volta per dispositivo)</b><ol>
-        <li>Apri <a href="https://github.com/settings/tokens/new?scopes=gist&description=Quadri%20Elettrici" target="_blank" rel="noopener">questa pagina di GitHub</a> (accedi se serve).</li>
+        <li>Apri <a href="https://github.com/settings/tokens/new?scopes=gist&description=${encodeURIComponent('Quadri Elettrici ' + (/Android|iPhone|iPad/i.test(navigator.userAgent) ? 'telefono' : 'PC') + ' ' + new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}" target="_blank" rel="noopener">questa pagina di GitHub</a> (accedi se serve). Se GitHub dice che la nota esiste già, cambia il testo nel campo «Note».</li>
         <li>In «Expiration» scegli la durata (es. «No expiration» o 1 anno). Il permesso <b>gist</b> è già spuntato: non selezionare altro.</li>
         <li>Premi «Generate token», copia il codice che inizia con <b>ghp_</b> e incollalo qui sotto.</li></ol></div>`}
     <div class="form">
