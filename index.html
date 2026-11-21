@@ -284,8 +284,11 @@ body.embedded #bPrint, body.embedded #bPrintU, body.embedded #bPrintD { display:
   #print-area { display: block; font-size: 11px; }
   #print-area h1 { margin: 0 0 4px; font-size: 20px; }
   #print-area h2 { font-size: 15px; color: var(--pri); margin: 14px 0 8px; }
-  #print-area svg.unifilare { max-width: 100%; height: auto; }
+  #print-area svg.unifilare { max-width: 100%; max-height: 165mm; width: auto; height: auto; }
   #print-area .pb { break-before: page; }
+  #print-area h2 { break-after: avoid; }
+  #print-area .pfront { break-inside: avoid; }
+  #print-area .enclosure { box-shadow: none; }
   #print-area .enclosure, #print-area .dev, #print-area .rail, #print-area .dev-label { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #print-area .rail { border-style: solid; }
   .tbl { font-size: 10px; }
@@ -2664,16 +2667,21 @@ window.addEventListener('offline', () => { if (cloudOn()) setChip('offline'); })
 function doPrint() {
   if (EMBEDDED) return toast('La stampa non è disponibile in questa pagina: usa la versione su GitHub');
   const p = state.project, res = computeAll(p), tg = tagMap(p);
-  const M = Math.min(26, Math.floor(980 / (p.mods + 2)));
+  // scala il fronte perché stia in una pagina A4 orizzontale (circa 1000 × 560 px utili sotto l'intestazione)
+  const M = Math.max(8, Math.min(26, Math.floor(1000 / (p.mods + 2.2)), Math.floor(560 / (6.6 * p.rows + 1.2))));
   $('#print-area').innerHTML = `
     <header class="ph"><h1>${esc(p.name)}</h1>
       <p>${esc([p.client, p.place].filter(Boolean).join(' – '))} · ${new Date().toLocaleDateString('it-IT')}<br>
       Alimentazione ${p.supply === '400' ? 'trifase 400 V' : 'monofase 230 V'}${num(p.icc) ? ' · Icc presunta ' + esc(p.icc) + ' kA' : ''}</p>
       ${p.notes ? `<p>${esc(p.notes)}</p>` : ''}</header>
-    <h2>Fronte quadro</h2>${panelHTML(p, M, res, tg, false)}
-    <h2 class="pb">Schema unifilare</h2>${unifilareSVG(p, res, tg)}
-    <h2 class="pb">Distinta materiali</h2>${bomTables(p, tg)}`;
-  setTimeout(() => window.print(), 400);
+    <section class="pfront"><h2>Fronte quadro</h2>${panelHTML(p, M, res, tg, false)}</section>
+    <section class="pb"><h2>Schema unifilare</h2>${unifilareSVG(p, res, tg)}</section>
+    <section class="pb"><h2>Distinta materiali</h2>${bomTables(p, tg)}</section>`;
+  // aspetta che le foto siano caricate prima di aprire la stampa
+  const imgs = $$('#print-area img');
+  imgs.forEach(i => { i.loading = 'eager'; });
+  Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })))
+    .then(() => setTimeout(() => window.print(), 150));
 }
 
 // ---------------------------------------------------------------- avvio
