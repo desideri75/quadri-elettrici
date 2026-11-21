@@ -103,6 +103,8 @@ input, select, textarea {
 .pal-item.active { border-color: var(--acc); background: #eaf1ff; }
 .pal-thumb { height: 62px; flex: none; display: flex; background: #fff; }
 .pal-thumb > svg, .pal-thumb > img { width: 100%; height: 100%; object-fit: contain; }
+.pal-thumb > img { object-fit: fill; }
+.pal-thumb:has(> img) { background: transparent; }
 .pal-txt { min-width: 0; font-size: 13px; line-height: 1.3; }
 
 .panel-scroll { flex: 1; overflow: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
@@ -128,6 +130,9 @@ input, select, textarea {
   -webkit-user-select: none; z-index: 1; background: #fff;
 }
 .dev > svg, .dev > img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+/* le foto riempiono tutta la larghezza dei moduli (niente bande bianche ai lati) */
+.dev > img { object-fit: fill; }
+.dev.photo { background: transparent; }
 .dev.sel { outline: 3px solid var(--acc); outline-offset: 1px; z-index: 2; }
 .dev.dragging { opacity: .85; z-index: 5; cursor: grabbing; box-shadow: 0 8px 22px rgba(0, 0, 0, .3); }
 .dev-label {
@@ -158,6 +163,7 @@ input, select, textarea {
 .devhead { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
 .devthumb { height: 110px; flex: none; background: #fff; }
 .devthumb > svg, .devthumb > img { width: 100%; height: 100%; object-fit: contain; }
+.devthumb > img { object-fit: fill; }
 .res-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
 .res-grid div { background: #f3f5f9; border-radius: 8px; padding: 6px 8px; }
 .res-grid span { display: block; font-size: 11px; color: var(--muted); }
@@ -170,6 +176,7 @@ input, select, textarea {
 .img-edit { display: flex; gap: 14px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
 .img-prev { min-width: 60px; min-height: 130px; display: flex; align-items: center; justify-content: center; background: #f3f5f9; border-radius: 8px; padding: 6px; }
 .img-prev svg, .img-prev img { width: 100%; height: 100%; object-fit: contain; }
+.img-prev img { object-fit: fill; }
 .img-btns { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
 
 /* ---------- libreria */
@@ -182,6 +189,7 @@ input, select, textarea {
 .lib-thumb { width: 74px; flex: none; display: flex; justify-content: center; overflow: hidden; }
 .lib-thumb > div { flex: none; max-width: 74px; }
 .lib-thumb svg, .lib-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.lib-thumb img { object-fit: fill; }
 .lib-txt { min-width: 0; font-size: 13px; line-height: 1.35; }
 
 /* ---------- progetti */
@@ -840,9 +848,21 @@ function deviceSVG(it) {
       s += `<circle cx="${W / 2}" cy="57" r="${r}" fill="#fff" stroke="#999"/><circle cx="${W / 2 - r * .45}" cy="57" r="1.8" fill="#333"/><circle cx="${W / 2 + r * .45}" cy="57" r="1.8" fill="#333"/><rect x="${W / 2 - 1}" y="${57 - r * .8}" width="2" height="4" fill="#777"/>`;
       break;
     }
-    case 'SPIA':
-      s += `<circle cx="${W / 2}" cy="56" r="6" fill="#e53935" stroke="#8e1c1a"/><circle cx="${W / 2 - 2}" cy="54" r="1.6" fill="#fff" opacity=".6"/>`;
+    case 'SPIA': {
+      const txt = `${it.desc} ${it.code}`;
+      if (/3\s*lamp|tre lamp|presenza fas|segnalat\w* (di )?fas|semafor|5TE580[23]/i.test(txt)) {
+        const sem = /semafor|5TE5803|rosso.*giallo|red.*yellow/i.test(txt);
+        const cols = sem ? [['#e53935', '#8e1c1a', ''], ['#f2c200', '#a88600', ''], ['#2fbf55', '#1d7a35', '']]
+          : [['#2fbf55', '#1d7a35', 'L1'], ['#2fbf55', '#1d7a35', 'L2'], ['#2fbf55', '#1d7a35', 'L3']];
+        cols.forEach(([f, st, lab], i) => {
+          const cy = 46 + i * 11;
+          s += `<circle cx="${W / 2}" cy="${cy}" r="3.8" fill="${f}" stroke="${st}" stroke-width=".5"/>`;
+          if (lab) s += `<text x="${W / 2 + 5.2}" y="${cy + 1.2}" font-size="3" fill="#555" ${F}>${lab}</text>`;
+        });
+      } else
+        s += `<circle cx="${W / 2}" cy="56" r="6" fill="#e53935" stroke="#8e1c1a"/><circle cx="${W / 2 - 2}" cy="54" r="1.6" fill="#fff" opacity=".6"/>`;
       break;
+    }
     case 'TRASF':
       s += `<text x="${W / 2}" y="60" font-size="9" text-anchor="middle" fill="#444" ${F}>~/=</text>`;
       break;
@@ -1101,7 +1121,7 @@ function panelHTML(p, M, res, tg, interactive) {
     h += `<div class="row"><div class="row-n">${r + 1}</div><div class="rail ${interactive && state.placing ? 'placing' : ''}" data-row="${r}" style="width:${p.mods * M}px;height:${M * 5}px">`;
     for (const d of p.devices.filter(x => x.row === r)) {
       const st = res.get(d.uid)?.status;
-      h += `<div class="dev ${interactive && state.selected === d.uid ? 'sel' : ''}" data-uid="${d.uid}" style="left:${d.pos * M}px;width:${modsOf(d.item) * M}px">
+      h += `<div class="dev ${d.item.img ? 'photo' : ''} ${interactive && state.selected === d.uid ? 'sel' : ''}" data-uid="${d.uid}" style="left:${d.pos * M}px;width:${modsOf(d.item) * M}px">
         ${face(d.item)}${interactive && st && st !== 'ok' ? `<span class="dot ${st}"></span>` : ''}
         <div class="dev-label"><b>${esc(tg.get(d.uid))}</b> ${esc(d.label)}</div></div>`;
     }
