@@ -1311,6 +1311,7 @@ function openDevice(id) {
     <div class="actions top">
       <button class="btn" data-a="left" title="Sposta a sinistra">◀</button><button class="btn" data-a="right" title="Sposta a destra">▶</button>
       <button class="btn" data-a="up" title="Fila sopra">▲</button><button class="btn" data-a="down" title="Fila sotto">▼</button>
+      <button class="btn primary" data-a="swap" title="Sostituisci con un altro articolo mantenendo i dati del circuito">⇄ Cambia modello</button>
       <button class="btn danger" data-a="del">🗑 Elimina</button>
     </div>
     <div class="form">
@@ -1374,11 +1375,91 @@ function openDevice(id) {
       p.devices.push(nd);
       saveProject();
       openDevice(nd.uid);
+    } else if (a === 'swap') {
+      openSwap(d.uid);
     } else if (a === 'del') {
       deleteDevice(d.uid);
     }
   });
   renderDevRes(d);
+}
+
+// ---- cambia modello: sostituisce l'articolo mantenendo sigla, circuito, collegamenti, carico, cavo e posizione
+function openSwap(id) {
+  const p = state.project, d = p.devices.find(x => x.uid === id);
+  if (!d) return;
+  const cur = d.item, curM = modsOf(cur);
+  const st = { q: '', strict: true, brand: cur.brand || '' };
+  const tg = tagMap(p).get(id) || '';
+  const w = document.createElement('div');
+  w.className = 'modal';
+  const close = () => { w.remove(); document.removeEventListener('keydown', key, true); };
+  const key = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const isCur = it => (d.libId && it.id === d.libId) || (it.code && it.code === cur.code && it.brand === cur.brand && modsOf(it) === curM);
+  // spazio disponibile: posizione attuale (se entra) oppure il punto libero più vicino nella stessa fila
+  const spotFor = m => {
+    if (isFree(d.row, d.pos, m, d.uid)) return d.pos;
+    let best = null;
+    for (let s = 0; s <= p.mods - m; s++)
+      if (isFree(d.row, s, m, d.uid) && (best === null || Math.abs(s - d.pos) < Math.abs(best - d.pos))) best = s;
+    return best;
+  };
+  const list = () => {
+    const words = st.q.toLowerCase().split(/\s+/).filter(Boolean);
+    return sortItems(state.library.filter(it => {
+      if (st.strict && (it.type !== cur.type || modsOf(it) !== curM)) return false;
+      if (st.brand && it.brand !== st.brand) return false;
+      const txt = [it.brand, it.series, it.code, typeOf(it).name, typeOf(it).short, it.poles, ratingText(it), idnText(it), it.desc].join(' ').toLowerCase();
+      return words.every(x => txt.includes(x));
+    }));
+  };
+  const draw = () => {
+    const items = list();
+    w.querySelector('.swap-list').innerHTML = items.length ? items.map(it => {
+      const m = modsOf(it), fits = spotFor(m) !== null, now = isCur(it);
+      return `<div class="pal-item swap-it ${now ? 'active' : ''}" data-id="${esc(it.id)}" ${fits ? '' : 'style="opacity:.55"'}>
+        <div class="pal-thumb" style="width:${m * 12.4}px">${face(it)}</div>
+        <div class="pal-txt"><b>${esc(lineTitle(it))}</b> <span class="tag">${esc(typeOf(it).short)}</span>${idnText(it) ? ` <span class="tag blue">${esc(idnText(it))}</span>` : ''}
+          <br><small>${esc(it.brand)} ${esc(it.series)}</small>
+          <br><small class="muted">${esc(it.code || '')}${it.code ? ' · ' : ''}${m} mod${now ? ' · <b>attuale</b>' : ''}${fits ? '' : ' · <span class="warn-t">non c\'è spazio nella fila</span>'}</small></div></div>`;
+    }).join('') : '<p class="muted pad">Nessun articolo compatibile. Togli la spunta per vedere tutta la libreria.</p>';
+  };
+  w.innerHTML = `<div class="modal-box wide" style="max-height:90dvh;display:flex;flex-direction:column">
+    <p><b>Cambia modello di ${esc(tg)}</b> ${d.label ? '– ' + esc(d.label) : ''}</p>
+    <p class="small muted">Attuale: ${esc(cur.brand)} ${esc(cur.code || '')} · ${esc(specText(cur))}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">
+      <input class="swap-q" type="search" placeholder="Cerca: C10, 30mA, codice…" style="grid-column:1/-1">
+      <select class="swap-b"><option value="">Tutte le marche</option>${options(brands(), st.brand)}</select>
+      <label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" class="swap-s" checked style="width:auto"> Stesso tipo e larghezza</label>
+    </div>
+    <div class="swap-list" style="overflow:auto;flex:1;min-height:160px;border:1px solid var(--line);border-radius:8px;padding:4px"></div>
+    <p class="small muted" style="margin-top:8px">Restano sigla, circuito, collegamenti a monte e a valle, carico, cavo e posizione.</p>
+    <div class="actions"><button class="btn" data-r="close">Annulla</button></div></div>`;
+  w.querySelector('.swap-q').oninput = e => { st.q = e.target.value; draw(); };
+  w.querySelector('.swap-b').onchange = e => { st.brand = e.target.value; draw(); };
+  w.querySelector('.swap-s').onchange = e => { st.strict = e.target.checked; draw(); };
+  w.addEventListener('click', e => {
+    if (e.target.closest('[data-r=close]') || e.target === w) return close();
+    const el = e.target.closest('.swap-it'); if (!el) return;
+    const it = state.library.find(x => x.id === el.dataset.id); if (!it) return;
+    if (isCur(it)) return close();
+    const m = modsOf(it), pos = spotFor(m);
+    if (pos === null) return toast(`Non ci sono ${m} moduli liberi nella fila ${d.row + 1}`);
+    const oldTxt = `${ratingText(cur) || cur.code || typeOf(cur).short}`;
+    d.item = structuredClone(it);
+    d.libId = it.id;
+    d.pos = pos;
+    // i dispositivi a valle restano collegati solo se il nuovo tipo può alimentarli
+    if (!typeOf(it).feeds) p.devices.forEach(x => { if (x.parent === d.uid) x.parent = d.parent; });
+    saveProject();
+    close();
+    openDevice(d.uid);
+    toast(`${tg} cambiato da ${oldTxt} a ${ratingText(it) || it.code || typeOf(it).short}`);
+  });
+  document.addEventListener('keydown', key, true);
+  document.body.appendChild(w);
+  draw();
+  w.querySelector('.swap-q').focus();
 }
 
 async function deleteDevice(id) {
